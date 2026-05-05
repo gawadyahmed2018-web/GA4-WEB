@@ -3,73 +3,13 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
-import requests
+import sys
+import os
 
-# ── WINDSOR HELPERS (inline) ─────────────────────────────
-WINDSOR_BASE = "https://connectors.windsor.ai/all"
-
-def _preset_to_dates(preset):
-    """Convert date_preset string to (date_from, date_to) strings."""
-    from datetime import date, timedelta
-    today = date.today()
-    mapping = {
-        "last_7d":    (today - timedelta(days=7),  today - timedelta(days=1)),
-        "last_14d":   (today - timedelta(days=14), today - timedelta(days=1)),
-        "last_30d":   (today - timedelta(days=30), today - timedelta(days=1)),
-        "last_90d":   (today - timedelta(days=90), today - timedelta(days=1)),
-        "this_month": (today.replace(day=1),        today - timedelta(days=1)),
-        "last_month": ((today.replace(day=1) - timedelta(days=1)).replace(day=1),
-                       today.replace(day=1) - timedelta(days=1)),
-    }
-    df, dt = mapping.get(preset, (today - timedelta(days=30), today - timedelta(days=1)))
-    return str(df), str(dt)
-
-def get_windsor_data(api_key, fields, date_preset="last_30d",
-                     date_from=None, date_to=None, connector="googleanalytics4"):
-    # Always use explicit date_from/date_to — date_preset causes 500 errors
-    if not date_from or not date_to:
-        date_from, date_to = _preset_to_dates(date_preset)
-    params = {
-        "api_key":    api_key,
-        "connector":  connector,
-        "fields":     ",".join(fields),
-        "date_from":  date_from,
-        "date_to":    date_to,
-    }
-    try:
-        r = requests.get(WINDSOR_BASE, params=params, timeout=30)
-        r.raise_for_status()
-        data = r.json()
-        rows = data["data"] if isinstance(data, dict) and "data" in data else (data if isinstance(data, list) else [])
-        return pd.DataFrame(rows) if rows else pd.DataFrame()
-    except Exception as e:
-        st.error(f"Windsor API Error: {e}")
-        return pd.DataFrame()
-
-def safe_num(val, default=0):
-    try:
-        return float(val) if val is not None else default
-    except (TypeError, ValueError):
-        return default
-
-def fmt_currency(val, decimals=1):
-    v = safe_num(val)
-    if v >= 1_000_000:
-        return f"{v/1_000_000:.{decimals}f}M ج"
-    elif v >= 1_000:
-        return f"{v/1_000:.{decimals}f}K ج"
-    return f"{v:,.0f} ج"
-
-def fmt_number(val, decimals=0):
-    v = safe_num(val)
-    if v >= 1_000_000:
-        return f"{v/1_000_000:.1f}M"
-    elif v >= 1_000:
-        return f"{v/1_000:.1f}K"
-    return f"{v:,.{decimals}f}"
-
-def fmt_pct(val, decimals=1):
-    return f"{safe_num(val):.{decimals}f}%"
+sys.path.append(os.path.dirname(__file__))
+from utils.windsor import (
+    get_windsor_data, safe_num, fmt_currency, fmt_number, fmt_pct
+)
 
 # ── PAGE CONFIG ──────────────────────────────────────────
 st.set_page_config(
@@ -109,12 +49,12 @@ html, body, [class*="css"] {
 
 /* Sidebar */
 section[data-testid="stSidebar"] {
-    background: #F5F7FA;
-    border-right: 1px solid #E2E6EA;
+    background: #111827;
+    border-right: 1px solid #1E2A3A;
 }
 section[data-testid="stSidebar"] .stSelectbox label,
 section[data-testid="stSidebar"] .stTextInput label {
-    color: #73726C !important;
+    color: #9A9A8E !important;
     font-size: 12px;
     font-weight: 500;
     text-transform: uppercase;
@@ -123,8 +63,8 @@ section[data-testid="stSidebar"] .stTextInput label {
 
 /* KPI Cards */
 .kpi-card {
-    background: #FFFFFF;
-    border: 1px solid #E2E6EA;
+    background: #1A1F2E;
+    border: 1px solid #2A3050;
     border-radius: 12px;
     padding: 18px 20px;
     position: relative;
@@ -133,8 +73,8 @@ section[data-testid="stSidebar"] .stTextInput label {
 }
 .kpi-card:hover { border-color: #3266AD; }
 .kpi-accent { position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 12px 12px 0 0; }
-.kpi-label { font-size: 11px; color: #73726C; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
-.kpi-value { font-size: 26px; font-weight: 600; color: #1A1A2E; line-height: 1; margin-bottom: 6px; }
+.kpi-label { font-size: 11px; color: #9A9A8E; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.kpi-value { font-size: 26px; font-weight: 600; color: #E8E8E8; line-height: 1; margin-bottom: 6px; }
 .kpi-change { font-size: 12px; }
 .kpi-sub { font-size: 11px; color: #9A9A8E; margin-top: 2px; }
 .up   { color: #1D9E75; }
@@ -146,12 +86,12 @@ section[data-testid="stSidebar"] .stTextInput label {
 .section-header {
     display: flex; align-items: center; gap: 10px;
     padding: 6px 0 10px;
-    border-bottom: 1px solid #E2E6EA;
+    border-bottom: 1px solid #2A3050;
     margin-bottom: 16px;
 }
 .section-dot { width: 8px; height: 8px; border-radius: 50%; }
-.section-title { font-size: 15px; font-weight: 600; color: #1A1A2E; }
-.section-sub { font-size: 11px; color: #73726C; margin-left: auto; }
+.section-title { font-size: 15px; font-weight: 600; color: #E8E8E8; }
+.section-sub { font-size: 11px; color: #9A9A8E; margin-left: auto; }
 
 /* Insight cards */
 .insight-card {
@@ -159,23 +99,23 @@ section[data-testid="stSidebar"] .stTextInput label {
     margin-bottom: 8px; font-size: 13px; line-height: 1.6;
     border-left: 4px solid;
 }
-.insight-red    { background: #FEF3EF; border-color: #D85A30; color: #A33A15; }
-.insight-amber  { background: #FEF9EF; border-color: #EF9F27; color: #8A5A10; }
-.insight-green  { background: #EAF7F2; border-color: #1D9E75; color: #0D6B4F; }
-.insight-blue   { background: #EAF0FB; border-color: #3266AD; color: #1A4A8A; }
+.insight-red    { background: rgba(216,90,48,.12); border-color: #D85A30; color: #F4A87A; }
+.insight-amber  { background: rgba(239,159,39,.10); border-color: #EF9F27; color: #F4C87A; }
+.insight-green  { background: rgba(29,158,117,.10); border-color: #1D9E75; color: #7AE0C1; }
+.insight-blue   { background: rgba(50,102,173,.12); border-color: #3266AD; color: #82B0E8; }
 
 /* Top bar */
 .top-bar {
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 0 16px;
-    border-bottom: 1px solid #E2E6EA;
+    border-bottom: 1px solid #2A3050;
     margin-bottom: 20px;
 }
-.brand-name { font-size: 22px; font-weight: 700; color: #1A1A2E; }
+.brand-name { font-size: 22px; font-weight: 700; color: #E8E8E8; }
 .brand-name span { color: #3266AD; }
 .live-badge {
     display: inline-flex; align-items: center; gap: 6px;
-    background: #EAF7F2; border: 1px solid rgba(29,158,117,.4);
+    background: rgba(29,158,117,.15); border: 1px solid rgba(29,158,117,.3);
     border-radius: 20px; padding: 4px 12px;
     font-size: 11px; font-weight: 500; color: #1D9E75;
 }
@@ -190,7 +130,7 @@ section[data-testid="stSidebar"] .stTextInput label {
 }
 .funnel-label { font-size: 12px; color: #9A9A8E; min-width: 120px; }
 .funnel-track {
-    flex: 1; height: 28px; background: #F0F2F5;
+    flex: 1; height: 28px; background: #1A1F2E;
     border-radius: 4px; overflow: hidden; position: relative;
 }
 .funnel-fill {
@@ -202,21 +142,21 @@ section[data-testid="stSidebar"] .stTextInput label {
 
 /* Horizontal bar rows */
 .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.bar-name { font-size: 12px; color: #73726C; min-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bar-track { flex: 1; height: 8px; background: #F0F2F5; border-radius: 4px; overflow: hidden; }
+.bar-name { font-size: 12px; color: #9A9A8E; min-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-track { flex: 1; height: 8px; background: #1A1F2E; border-radius: 4px; overflow: hidden; }
 .bar-fill  { height: 100%; border-radius: 4px; }
-.bar-val   { font-size: 12px; color: #1A1A2E; min-width: 70px; text-align: right; font-weight: 500; }
+.bar-val   { font-size: 12px; color: #E8E8E8; min-width: 70px; text-align: right; font-weight: 500; }
 
 /* Tables */
 .styled-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .styled-table th {
-    background: #F5F7FA; color: #73726C; font-weight: 500;
+    background: #111827; color: #9A9A8E; font-weight: 500;
     font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
-    padding: 8px 10px; border-bottom: 1px solid #E2E6EA; text-align: left;
+    padding: 8px 10px; border-bottom: 1px solid #2A3050; text-align: left;
 }
 .styled-table td {
-    padding: 9px 10px; border-bottom: 1px solid #F0F2F5;
-    color: #1A1A2E; vertical-align: middle;
+    padding: 9px 10px; border-bottom: 1px solid #1E2A3A;
+    color: #E8E8E8; vertical-align: middle;
 }
 .styled-table tr:hover td { background: rgba(50,102,173,.06); }
 .badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
@@ -233,38 +173,31 @@ section[data-testid="stSidebar"] .stTextInput label {
 PLOT_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="IBM Plex Sans Arabic", color="#73726C", size=11),
+    font=dict(family="IBM Plex Sans Arabic", color="#9A9A8E", size=11),
     margin=dict(l=0, r=0, t=10, b=0),
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
                 font=dict(size=11), bgcolor="rgba(0,0,0,0)"),
-    xaxis=dict(gridcolor="#E8EDF2", linecolor="#D0D5DD", tickfont=dict(size=10)),
-    yaxis=dict(gridcolor="#E8EDF2", linecolor="#D0D5DD", tickfont=dict(size=10)),
+    xaxis=dict(gridcolor="#1E2A3A", linecolor="#2A3050", tickfont=dict(size=10)),
+    yaxis=dict(gridcolor="#1E2A3A", linecolor="#2A3050", tickfont=dict(size=10)),
 )
 
 # ── SIDEBAR ───────────────────────────────────────────────
-# ── API KEY: من Secrets أو من الـ Sidebar ────────────────
-_secret_key = st.secrets.get("WINDSOR_API_KEY", "") if hasattr(st, "secrets") else ""
-
 with st.sidebar:
     st.markdown("""
     <div style="padding:16px 0 20px">
-      <div style="font-size:18px;font-weight:700;color:#1A1A2E">
+      <div style="font-size:18px;font-weight:700;color:#E8E8E8">
         <span style="color:#3266AD">●</span> Raneen
       </div>
-      <div style="font-size:11px;color:#73726C;margin-top:4px">Analytics Dashboard</div>
+      <div style="font-size:11px;color:#9A9A8E;margin-top:4px">Analytics Dashboard</div>
     </div>
     """, unsafe_allow_html=True)
 
-    if _secret_key:
-        api_key = _secret_key
-        st.success("✅ API Key محفوظ في Secrets", icon="🔒")
-    else:
-        api_key = st.text_input(
-            "Windsor API Key",
-            type="password",
-            placeholder="wnd_xxxxxxxxxxxx",
-            help="Get it from windsor.ai → Settings → API Keys",
-        )
+    api_key = st.text_input(
+        "Windsor API Key",
+        type="password",
+        placeholder="wnd_xxxxxxxxxxxx",
+        help="Get it from windsor.ai → Settings → API Keys",
+    )
 
     st.markdown("---")
 
@@ -312,7 +245,7 @@ if not api_key:
     st.markdown("""
     <div style="text-align:center;padding:60px 20px">
       <div style="font-size:48px;margin-bottom:16px">🔑</div>
-      <div style="font-size:20px;font-weight:600;color:#1A1A2E;margin-bottom:8px">
+      <div style="font-size:20px;font-weight:600;color:#E8E8E8;margin-bottom:8px">
         Enter Your Windsor API Key
       </div>
       <div style="font-size:14px;color:#9A9A8E;max-width:400px;margin:0 auto">
@@ -326,109 +259,42 @@ if not api_key:
 # ── LOAD DATA ─────────────────────────────────────────────
 @st.cache_data(ttl=300, show_spinner=False)
 def load_overview(key, preset):
-    """Overview: split into 2 requests — session metrics + ecommerce metrics, merge on date."""
-    import pandas as pd
-    # Request 1: Session-level metrics
-    df1 = get_windsor_data(key, [
-        "date", "sessions", "active_users", "bounce_rate", "average_session_duration",
+    return get_windsor_data(key, [
+        "date", "sessions", "active_users", "purchase_revenue",
+        "transactions", "bounce_rate", "add_to_carts",
+        "checkouts", "average_session_duration",
     ], date_preset=preset)
-    # Request 2: Ecommerce metrics
-    df2 = get_windsor_data(key, [
-        "date", "purchase_revenue", "transactions", "add_to_carts", "checkouts",
-    ], date_preset=preset)
-    if df1.empty and df2.empty:
-        return pd.DataFrame()
-    if df1.empty:
-        return df2
-    if df2.empty:
-        return df1
-    try:
-        merged = pd.merge(df1, df2, on="date", how="outer")
-        return merged
-    except Exception:
-        return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_channels(key, preset):
-    """Channel: session + ecommerce — merge on channel group."""
-    import pandas as pd
-    df1 = get_windsor_data(key, [
+    return get_windsor_data(key, [
         "session_default_channel_group", "sessions",
+        "purchase_revenue", "transactions", "add_to_carts", "checkouts",
     ], date_preset=preset)
-    df2 = get_windsor_data(key, [
-        "session_default_channel_group", "purchase_revenue", "transactions",
-        "add_to_carts", "checkouts",
-    ], date_preset=preset)
-    if df1.empty and df2.empty:
-        return pd.DataFrame()
-    if df1.empty: return df2
-    if df2.empty: return df1
-    try:
-        return pd.merge(df1, df2, on="session_default_channel_group", how="outer")
-    except Exception:
-        return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_devices(key, preset):
-    """Devices: session + ecommerce — merge on devicecategory."""
-    import pandas as pd
-    df1 = get_windsor_data(key, [
-        "devicecategory", "sessions", "bounce_rate", "engagement_rate",
+    return get_windsor_data(key, [
+        "devicecategory", "sessions", "purchase_revenue",
+        "transactions", "bounce_rate", "engagement_rate",
     ], date_preset=preset)
-    df2 = get_windsor_data(key, [
-        "devicecategory", "purchase_revenue", "transactions",
-    ], date_preset=preset)
-    if df1.empty and df2.empty:
-        return pd.DataFrame()
-    if df1.empty: return df2
-    if df2.empty: return df1
-    try:
-        return pd.merge(df1, df2, on="devicecategory", how="outer")
-    except Exception:
-        return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_new_returning(key, preset):
-    """New vs Returning: session + ecommerce — merge on segment."""
-    import pandas as pd
-    df1 = get_windsor_data(key, [
-        "new_vs_returning", "sessions", "active_users",
+    return get_windsor_data(key, [
+        "new_vs_returning", "sessions",
+        "active_users", "purchase_revenue", "transactions",
     ], date_preset=preset)
-    df2 = get_windsor_data(key, [
-        "new_vs_returning", "purchase_revenue", "transactions",
-    ], date_preset=preset)
-    if df1.empty and df2.empty:
-        return pd.DataFrame()
-    if df1.empty: return df2
-    if df2.empty: return df1
-    try:
-        return pd.merge(df1, df2, on="new_vs_returning", how="outer")
-    except Exception:
-        return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_campaigns(key, preset):
-    """Campaigns: session + ecommerce — merge on campaign name."""
-    import pandas as pd
-    df1 = get_windsor_data(key, [
+    return get_windsor_data(key, [
         "session_google_ads_campaign_name", "sessions",
+        "purchase_revenue", "transactions", "add_to_carts", "checkouts",
     ], date_preset=preset)
-    df2 = get_windsor_data(key, [
-        "session_google_ads_campaign_name", "purchase_revenue",
-        "transactions", "add_to_carts", "checkouts",
-    ], date_preset=preset)
-    if df1.empty and df2.empty:
-        return pd.DataFrame()
-    if df1.empty: return df2
-    if df2.empty: return df1
-    try:
-        return pd.merge(df1, df2, on="session_google_ads_campaign_name", how="outer")
-    except Exception:
-        return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_categories(key, preset):
-    """Categories: all ecommerce — same table, single request."""
     return get_windsor_data(key, [
         "item_category", "gross_item_revenue",
         "items_purchased", "items_viewed", "items_added_to_cart",
@@ -436,38 +302,9 @@ def load_categories(key, preset):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_products(key, preset):
-    """Products: all ecommerce — same table, single request."""
     return get_windsor_data(key, [
         "item_name", "item_revenue",
         "items_purchased", "items_viewed", "items_added_to_cart",
-    ], date_preset=preset)
-
-@st.cache_data(ttl=300, show_spinner=False)
-def load_campaign_products(key, preset):
-    """Campaign products: ecommerce + traffic source — merge on item_name."""
-    import pandas as pd
-    df1 = get_windsor_data(key, [
-        "session_google_ads_campaign_name", "sessions",
-    ], date_preset=preset)
-    df2 = get_windsor_data(key, [
-        "item_name", "item_revenue", "items_purchased", "items_added_to_cart",
-    ], date_preset=preset)
-    # For campaign→product we need the cross-dimension — try direct combined request
-    df_combo = get_windsor_data(key, [
-        "session_google_ads_campaign_name", "item_name",
-        "item_revenue", "items_purchased",
-    ], date_preset=preset)
-    if not df_combo.empty:
-        return df_combo
-    return pd.DataFrame()
-
-@st.cache_data(ttl=300, show_spinner=False)
-def load_subcategory(key, preset, category: str):
-    """Subcategory: all ecommerce — same table, single request."""
-    return get_windsor_data(key, [
-        "item_category", "item_category2",
-        "gross_item_revenue", "items_purchased",
-        "items_viewed", "items_added_to_cart",
     ], date_preset=preset)
 
 with st.spinner("Loading data from Windsor..."):
@@ -856,34 +693,19 @@ elif active_tab == "E-Commerce":
     st.markdown(section_header("E-Commerce Insights", "Products & Categories", "#1D9E75"), unsafe_allow_html=True)
 
     with st.spinner("Loading e-commerce data..."):
-        df_cat  = load_categories(api_key, date_preset)
+        df_cat = load_categories(api_key, date_preset)
         df_prod = load_products(api_key, date_preset)
-        df_sub  = load_subcategory(api_key, date_preset, "")
-
-    RANEEN_CATS = ["الأجهزة المنزلية", "الأثاث", "الإلكترونيات", "المطبخ", "موبايلات",
-                   "المفروشات", "عروض رنين", "المنزل", "المنتجات العائلية", "الأزياء و الموضة"]
-
-    # ── Category icons for display
-    CAT_ICONS = {
-        "الأجهزة المنزلية": "🏠",
-        "الأثاث":            "🛋️",
-        "الإلكترونيات":      "📺",
-        "المطبخ":            "🍳",
-        "موبايلات":          "📱",
-        "المفروشات":         "🛏️",
-        "عروض رنين":         "🏷️",
-        "المنزل":            "🪴",
-        "المنتجات العائلية": "👨‍👩‍👧",
-        "الأزياء و الموضة":  "👗",
-    }
 
     if not df_cat.empty and "item_category" in df_cat.columns:
         for col in ["gross_item_revenue", "items_purchased", "items_viewed", "items_added_to_cart"]:
             if col in df_cat.columns:
                 df_cat[col] = df_cat[col].apply(safe_num)
 
-        df_cat_f = df_cat[df_cat["item_category"].isin(RANEEN_CATS)].sort_values("gross_item_revenue", ascending=False)
-        tot_item_rev   = df_cat_f["gross_item_revenue"].sum()
+        raneen_cats = ["الأجهزة المنزلية", "الأثاث", "الإلكترونيات", "المطبخ", "موبايلات",
+                       "المفروشات", "عروض رنين", "المنزل", "المنتجات العائلية", "الأزياء و الموضة"]
+        df_cat_f = df_cat[df_cat["item_category"].isin(raneen_cats)].sort_values("gross_item_revenue", ascending=False)
+
+        tot_item_rev = df_cat_f["gross_item_revenue"].sum()
         tot_item_units = df_cat_f["items_purchased"].sum()
 
         c1, c2, c3 = st.columns(3)
@@ -900,121 +722,43 @@ elif active_tab == "E-Commerce":
         col_l, col_r = st.columns(2)
         with col_l:
             st.markdown(section_header("Revenue by Category", "", "#1D9E75"), unsafe_allow_html=True)
-            cat_colors = ["#3266AD","#378ADD","#85B7EB","#1D9E75","#5DCAA5","#EF9F27","#7F77DD","#D85A30","#888780","#B5D4F4"]
             max_rev = df_cat_f["gross_item_revenue"].max()
-            for i, (_, row) in enumerate(df_cat_f.head(10).iterrows()):
-                pct  = row["gross_item_revenue"] / max_rev * 100 if max_rev else 0
-                icon = CAT_ICONS.get(row["item_category"], "")
-                st.markdown(bar_html(f"{icon} {row['item_category']}", pct, cat_colors[i % len(cat_colors)],
-                                     fmt_currency(row["gross_item_revenue"])), unsafe_allow_html=True)
+            cat_colors = ["#3266AD", "#378ADD", "#85B7EB", "#1D9E75", "#5DCAA5", "#EF9F27", "#7F77DD", "#D85A30", "#888780", "#B5D4F4"]
+            for i, (_, row) in enumerate(df_cat_f.head(8).iterrows()):
+                pct = row["gross_item_revenue"] / max_rev * 100 if max_rev else 0
+                col = cat_colors[i % len(cat_colors)]
+                st.markdown(bar_html(row["item_category"], pct, col, fmt_currency(row["gross_item_revenue"])), unsafe_allow_html=True)
 
         with col_r:
             st.markdown(section_header("Cart-to-View Rate", "", "#EF9F27"), unsafe_allow_html=True)
-            df_cat_f = df_cat_f.copy()
             df_cat_f["cart_rate"] = df_cat_f.apply(
                 lambda r: r["items_added_to_cart"] / r["items_viewed"] * 100 if r["items_viewed"] > 0 else 0, axis=1)
             df_cat_sorted = df_cat_f.sort_values("cart_rate", ascending=False)
             max_cr = df_cat_sorted["cart_rate"].max()
-            for _, row in df_cat_sorted.head(10).iterrows():
+            for i, (_, row) in enumerate(df_cat_sorted.head(8).iterrows()):
                 pct = row["cart_rate"] / max_cr * 100 if max_cr else 0
                 col = "#1D9E75" if row["cart_rate"] > 6 else "#EF9F27" if row["cart_rate"] > 3 else "#D85A30"
-                icon = CAT_ICONS.get(row["item_category"], "")
-                st.markdown(bar_html(f"{icon} {row['item_category']}", pct, col,
-                                     f"{row['cart_rate']:.1f}%"), unsafe_allow_html=True)
+                st.markdown(bar_html(row["item_category"], pct, col, f"{row['cart_rate']:.1f}%"), unsafe_allow_html=True)
 
-    # ── SUBCATEGORY DRILL-DOWN (ثلاجات / غسالات / تكييفات ...)
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-    st.markdown(section_header("Category Drill-Down", "إيه بيباع جوه كل فئة؟", "#7F77DD"), unsafe_allow_html=True)
-
-    selected_cat = st.selectbox(
-        "اختار الفئة",
-        options=RANEEN_CATS,
-        index=0,
-        key="cat_drilldown",
-    )
-
-    if not df_sub.empty and "item_category" in df_sub.columns and "item_category2" in df_sub.columns:
-        for col in ["gross_item_revenue", "items_purchased", "items_viewed", "items_added_to_cart"]:
-            if col in df_sub.columns:
-                df_sub[col] = df_sub[col].apply(safe_num)
-
-        df_sub_f = df_sub[
-            (df_sub["item_category"] == selected_cat) &
-            df_sub["item_category2"].notna() &
-            (df_sub["item_category2"] != "") &
-            (df_sub["item_category2"] != "(not set)")
-        ].groupby("item_category2").sum(numeric_only=True).reset_index()
-        df_sub_f = df_sub_f[df_sub_f["gross_item_revenue"] > 0].sort_values("gross_item_revenue", ascending=False)
-
-        if not df_sub_f.empty:
-            sub_colors = ["#3266AD","#1D9E75","#EF9F27","#7F77DD","#D85A30","#5DCAA5","#85B7EB","#888780"]
-            max_sub_rev = df_sub_f["gross_item_revenue"].max()
-
-            col_l2, col_r2 = st.columns(2)
-            with col_l2:
-                st.markdown(f"**Revenue — {selected_cat}**")
-                for i, (_, row) in enumerate(df_sub_f.head(10).iterrows()):
-                    pct = row["gross_item_revenue"] / max_sub_rev * 100 if max_sub_rev else 0
-                    st.markdown(bar_html(str(row["item_category2"]), pct,
-                                         sub_colors[i % len(sub_colors)],
-                                         fmt_currency(row["gross_item_revenue"])), unsafe_allow_html=True)
-
-            with col_r2:
-                st.markdown(f"**Units Sold — {selected_cat}**")
-                df_sub_units = df_sub_f.sort_values("items_purchased", ascending=False)
-                max_units = df_sub_units["items_purchased"].max()
-                for i, (_, row) in enumerate(df_sub_units.head(10).iterrows()):
-                    pct = row["items_purchased"] / max_units * 100 if max_units else 0
-                    st.markdown(bar_html(str(row["item_category2"]), pct,
-                                         sub_colors[i % len(sub_colors)],
-                                         fmt_number(row["items_purchased"]) + " unit"), unsafe_allow_html=True)
-
-            # Sub-category table
-            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-            sub_rows = []
-            for i, (_, row) in enumerate(df_sub_f.iterrows(), 1):
-                views = safe_num(row.get("items_viewed", 0))
-                carts = safe_num(row.get("items_added_to_cart", 0))
-                cart_r = carts / views * 100 if views > 0 else 0
-                aov_sub = row["gross_item_revenue"] / row["items_purchased"] if row["items_purchased"] > 0 else 0
-                badge_cls = "badge-green" if cart_r > 6 else "badge-amber" if cart_r > 3 else "badge-red"
-                sub_rows.append(f"""
-                <tr>
-                  <td style="color:#9A9A8E">{i}</td>
-                  <td><b>{row['item_category2']}</b></td>
-                  <td><b style="color:#1D9E75">{fmt_currency(row['gross_item_revenue'])}</b></td>
-                  <td>{fmt_number(row['items_purchased'])}</td>
-                  <td>{fmt_number(views)}</td>
-                  <td><span class="badge {badge_cls}">{cart_r:.1f}%</span></td>
-                  <td>{fmt_currency(aov_sub, 0)}</td>
-                </tr>""")
-            st.markdown(f"""
-            <table class="styled-table">
-              <thead><tr><th>#</th><th>Sub-Category</th><th>Revenue</th><th>Units</th><th>Views</th><th>Cart%</th><th>AOV</th></tr></thead>
-              <tbody>{''.join(sub_rows)}</tbody>
-            </table>""", unsafe_allow_html=True)
-        else:
-            st.info(f"مفيش بيانات sub-category لـ '{selected_cat}' في الفترة دي — ممكن الـ item_category2 مش مضبوط في الـ GA4 tracking.")
-
-    # ── TOP PRODUCTS TABLE
+    # Top products table
     if not df_prod.empty and "item_name" in df_prod.columns:
         for col in ["item_revenue", "items_purchased", "items_viewed", "items_added_to_cart"]:
             if col in df_prod.columns:
                 df_prod[col] = df_prod[col].apply(safe_num)
 
-        df_top = df_prod[df_prod["item_revenue"] > 0].sort_values("item_revenue", ascending=False).head(15)
+        df_top = df_prod[df_prod["item_revenue"] > 0].sort_values("item_revenue", ascending=False).head(10)
 
-        st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-        st.markdown(section_header("Top 15 Products by Revenue", "", "#3266AD"), unsafe_allow_html=True)
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+        st.markdown(section_header("Top 10 Products by Revenue", "", "#3266AD"), unsafe_allow_html=True)
 
-        prod_rows = []
+        rows = []
         for i, (_, row) in enumerate(df_top.iterrows(), 1):
-            name    = str(row["item_name"])[:55] + ("..." if len(str(row["item_name"])) > 55 else "")
-            views   = safe_num(row.get("items_viewed", 0))
-            carts   = safe_num(row.get("items_added_to_cart", 0))
-            cart_r  = carts / views * 100 if views > 0 else 0
+            name = str(row["item_name"])[:55] + ("..." if len(str(row["item_name"])) > 55 else "")
+            views = safe_num(row.get("items_viewed", 0))
+            carts = safe_num(row.get("items_added_to_cart", 0))
+            cart_r = carts / views * 100 if views > 0 else 0
             badge_cls = "badge-green" if cart_r > 8 else "badge-amber" if cart_r > 4 else "badge-red"
-            prod_rows.append(f"""
+            rows.append(f"""
             <tr>
               <td style="color:#9A9A8E">{i}</td>
               <td>{name}</td>
@@ -1027,7 +771,7 @@ elif active_tab == "E-Commerce":
         st.markdown(f"""
         <table class="styled-table">
           <thead><tr><th>#</th><th>Product</th><th>Revenue</th><th>Units</th><th>Views</th><th>Cart%</th></tr></thead>
-          <tbody>{''.join(prod_rows)}</tbody>
+          <tbody>{''.join(rows)}</tbody>
         </table>""", unsafe_allow_html=True)
 
 
@@ -1126,100 +870,6 @@ elif active_tab == "Campaigns":
           <thead><tr><th>Campaign</th><th>Sessions</th><th>Revenue</th><th>Orders</th><th>CVR</th><th>Rev/Ses</th><th>Rating</th></tr></thead>
           <tbody>{''.join(rows)}</tbody>
         </table>""", unsafe_allow_html=True)
-
-        # ════════════════════════════════════════════════
-        # ── CAMPAIGN PRODUCTS DRILL-DOWN
-        # ════════════════════════════════════════════════
-        st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
-        st.markdown(section_header("Campaign → Products", "إيه المنتجات اللي باعتها كل حملة؟", "#7F77DD"), unsafe_allow_html=True)
-
-        with st.spinner("Loading campaign products..."):
-            df_cp_prods = load_campaign_products(api_key, date_preset)
-
-        camp_list     = df_paid["session_google_ads_campaign_name"].tolist()
-        selected_camp = st.selectbox(
-            "اختار الحملة",
-            options=camp_list,
-            key="camp_products_filter",
-        )
-
-        if not df_cp_prods.empty and "session_google_ads_campaign_name" in df_cp_prods.columns and "item_name" in df_cp_prods.columns:
-            for c2 in ["item_revenue", "items_purchased", "items_added_to_cart"]:
-                if c2 in df_cp_prods.columns:
-                    df_cp_prods[c2] = df_cp_prods[c2].apply(safe_num)
-
-            df_camp_prod = df_cp_prods[
-                (df_cp_prods["session_google_ads_campaign_name"] == selected_camp) &
-                df_cp_prods["item_name"].notna() &
-                (df_cp_prods["item_name"] != "(not set)") &
-                (df_cp_prods["item_revenue"] > 0)
-            ].sort_values("item_revenue", ascending=False)
-
-            if not df_camp_prod.empty:
-                camp_rev   = df_camp_prod["item_revenue"].sum()
-                camp_units = df_camp_prod["items_purchased"].sum()
-                camp_prods = len(df_camp_prod)
-
-                kc1, kc2, kc3 = st.columns(3)
-                with kc1:
-                    st.markdown(kpi_card("Campaign Revenue", fmt_currency(camp_rev),
-                                         selected_camp.split("-")[-1], "up", accent_color="#7F77DD"), unsafe_allow_html=True)
-                with kc2:
-                    st.markdown(kpi_card("Units Sold", fmt_number(camp_units),
-                                         "من الحملة دي", "up", accent_color="#3266AD"), unsafe_allow_html=True)
-                with kc3:
-                    st.markdown(kpi_card("SKUs", str(camp_prods),
-                                         "منتج مختلف", "neu", accent_color="#1D9E75"), unsafe_allow_html=True)
-
-                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-
-                prod_colors = ["#7F77DD","#9F98E8","#3266AD","#1D9E75","#EF9F27","#D85A30","#85B7EB","#5DCAA5","#888780","#B5D4F4"]
-
-                cpl, cpr = st.columns(2)
-                with cpl:
-                    st.markdown("**Top Products — Revenue**")
-                    max_pr = df_camp_prod["item_revenue"].max()
-                    for i, (_, row) in enumerate(df_camp_prod.head(10).iterrows()):
-                        pct  = row["item_revenue"] / max_pr * 100 if max_pr else 0
-                        nm   = str(row["item_name"])[:45] + ("..." if len(str(row["item_name"])) > 45 else "")
-                        st.markdown(bar_html(nm, pct, prod_colors[i % len(prod_colors)],
-                                             fmt_currency(row["item_revenue"])), unsafe_allow_html=True)
-
-                with cpr:
-                    st.markdown("**Top Products — Units**")
-                    df_cu = df_camp_prod.sort_values("items_purchased", ascending=False)
-                    max_pu = df_cu["items_purchased"].max()
-                    for i, (_, row) in enumerate(df_cu.head(10).iterrows()):
-                        pct = row["items_purchased"] / max_pu * 100 if max_pu else 0
-                        nm  = str(row["item_name"])[:45] + ("..." if len(str(row["item_name"])) > 45 else "")
-                        st.markdown(bar_html(nm, pct, prod_colors[i % len(prod_colors)],
-                                             fmt_number(row["items_purchased"]) + " unit"), unsafe_allow_html=True)
-
-                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-                cp_rows = []
-                for i, (_, row) in enumerate(df_camp_prod.iterrows(), 1):
-                    nm     = str(row["item_name"])[:60] + ("..." if len(str(row["item_name"])) > 60 else "")
-                    units  = int(safe_num(row.get("items_purchased", 0)))
-                    rev    = safe_num(row.get("item_revenue", 0))
-                    aov_cp = rev / units if units > 0 else 0
-                    cp_rows.append(f"""
-                    <tr>
-                      <td style="color:#9A9A8E">{i}</td>
-                      <td>{nm}</td>
-                      <td><b style="color:#7F77DD">{fmt_currency(rev)}</b></td>
-                      <td>{units}</td>
-                      <td>{fmt_currency(aov_cp, 0)}</td>
-                    </tr>""")
-
-                st.markdown(f"""
-                <table class="styled-table">
-                  <thead><tr><th>#</th><th>Product</th><th>Revenue</th><th>Units</th><th>AOV</th></tr></thead>
-                  <tbody>{''.join(cp_rows)}</tbody>
-                </table>""", unsafe_allow_html=True)
-            else:
-                st.info("مفيش بيانات منتجات للحملة دي — ممكن الـ item-level tracking مش مفعّل مع الـ campaign dimension.")
-        else:
-            st.info("تأكد إن الـ item_name و campaign dimensions شغالين مع بعض في الـ GA4 property.")
 
 
 # ═════════════════════════════════════════════════════════
