@@ -90,12 +90,12 @@ html, body, [class*="css"] {
 
 /* Sidebar */
 section[data-testid="stSidebar"] {
-    background: #111827;
-    border-right: 1px solid #1E2A3A;
+    background: #F5F7FA;
+    border-right: 1px solid #E2E6EA;
 }
 section[data-testid="stSidebar"] .stSelectbox label,
 section[data-testid="stSidebar"] .stTextInput label {
-    color: #9A9A8E !important;
+    color: #73726C !important;
     font-size: 12px;
     font-weight: 500;
     text-transform: uppercase;
@@ -104,8 +104,8 @@ section[data-testid="stSidebar"] .stTextInput label {
 
 /* KPI Cards */
 .kpi-card {
-    background: #1A1F2E;
-    border: 1px solid #2A3050;
+    background: #FFFFFF;
+    border: 1px solid #E2E6EA;
     border-radius: 12px;
     padding: 18px 20px;
     position: relative;
@@ -114,8 +114,8 @@ section[data-testid="stSidebar"] .stTextInput label {
 }
 .kpi-card:hover { border-color: #3266AD; }
 .kpi-accent { position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 12px 12px 0 0; }
-.kpi-label { font-size: 11px; color: #9A9A8E; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
-.kpi-value { font-size: 26px; font-weight: 600; color: #E8E8E8; line-height: 1; margin-bottom: 6px; }
+.kpi-label { font-size: 11px; color: #73726C; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.kpi-value { font-size: 26px; font-weight: 600; color: #1A1A2E; line-height: 1; margin-bottom: 6px; }
 .kpi-change { font-size: 12px; }
 .kpi-sub { font-size: 11px; color: #9A9A8E; margin-top: 2px; }
 .up   { color: #1D9E75; }
@@ -127,12 +127,12 @@ section[data-testid="stSidebar"] .stTextInput label {
 .section-header {
     display: flex; align-items: center; gap: 10px;
     padding: 6px 0 10px;
-    border-bottom: 1px solid #2A3050;
+    border-bottom: 1px solid #E2E6EA;
     margin-bottom: 16px;
 }
 .section-dot { width: 8px; height: 8px; border-radius: 50%; }
-.section-title { font-size: 15px; font-weight: 600; color: #E8E8E8; }
-.section-sub { font-size: 11px; color: #9A9A8E; margin-left: auto; }
+.section-title { font-size: 15px; font-weight: 600; color: #1A1A2E; }
+.section-sub { font-size: 11px; color: #73726C; margin-left: auto; }
 
 /* Insight cards */
 .insight-card {
@@ -140,23 +140,23 @@ section[data-testid="stSidebar"] .stTextInput label {
     margin-bottom: 8px; font-size: 13px; line-height: 1.6;
     border-left: 4px solid;
 }
-.insight-red    { background: rgba(216,90,48,.12); border-color: #D85A30; color: #F4A87A; }
-.insight-amber  { background: rgba(239,159,39,.10); border-color: #EF9F27; color: #F4C87A; }
-.insight-green  { background: rgba(29,158,117,.10); border-color: #1D9E75; color: #7AE0C1; }
-.insight-blue   { background: rgba(50,102,173,.12); border-color: #3266AD; color: #82B0E8; }
+.insight-red    { background: #FEF3EF; border-color: #D85A30; color: #A33A15; }
+.insight-amber  { background: #FEF9EF; border-color: #EF9F27; color: #8A5A10; }
+.insight-green  { background: #EAF7F2; border-color: #1D9E75; color: #0D6B4F; }
+.insight-blue   { background: #EAF0FB; border-color: #3266AD; color: #1A4A8A; }
 
 /* Top bar */
 .top-bar {
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 0 16px;
-    border-bottom: 1px solid #2A3050;
+    border-bottom: 1px solid #E2E6EA;
     margin-bottom: 20px;
 }
-.brand-name { font-size: 22px; font-weight: 700; color: #E8E8E8; }
+.brand-name { font-size: 22px; font-weight: 700; color: #1A1A2E; }
 .brand-name span { color: #3266AD; }
 .live-badge {
     display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(29,158,117,.15); border: 1px solid rgba(29,158,117,.3);
+    background: #EAF7F2; border: 1px solid rgba(29,158,117,.4);
     border-radius: 20px; padding: 4px 12px;
     font-size: 11px; font-weight: 500; color: #1D9E75;
 }
@@ -171,7 +171,7 @@ section[data-testid="stSidebar"] .stTextInput label {
 }
 .funnel-label { font-size: 12px; color: #9A9A8E; min-width: 120px; }
 .funnel-track {
-    flex: 1; height: 28px; background: #1A1F2E;
+    flex: 1; height: 28px; background: #F0F2F5;
     border-radius: 4px; overflow: hidden; position: relative;
 }
 .funnel-fill {
@@ -183,21 +183,21 @@ section[data-testid="stSidebar"] .stTextInput label {
 
 /* Horizontal bar rows */
 .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.bar-name { font-size: 12px; color: #9A9A8E; min-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bar-track { flex: 1; height: 8px; background: #1A1F2E; border-radius: 4px; overflow: hidden; }
+.bar-name { font-size: 12px; color: #73726C; min-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-track { flex: 1; height: 8px; background: #F0F2F5; border-radius: 4px; overflow: hidden; }
 .bar-fill  { height: 100%; border-radius: 4px; }
-.bar-val   { font-size: 12px; color: #E8E8E8; min-width: 70px; text-align: right; font-weight: 500; }
+.bar-val   { font-size: 12px; color: #1A1A2E; min-width: 70px; text-align: right; font-weight: 500; }
 
 /* Tables */
 .styled-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .styled-table th {
-    background: #111827; color: #9A9A8E; font-weight: 500;
+    background: #F5F7FA; color: #73726C; font-weight: 500;
     font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
-    padding: 8px 10px; border-bottom: 1px solid #2A3050; text-align: left;
+    padding: 8px 10px; border-bottom: 1px solid #E2E6EA; text-align: left;
 }
 .styled-table td {
-    padding: 9px 10px; border-bottom: 1px solid #1E2A3A;
-    color: #E8E8E8; vertical-align: middle;
+    padding: 9px 10px; border-bottom: 1px solid #F0F2F5;
+    color: #1A1A2E; vertical-align: middle;
 }
 .styled-table tr:hover td { background: rgba(50,102,173,.06); }
 .badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
@@ -214,31 +214,38 @@ section[data-testid="stSidebar"] .stTextInput label {
 PLOT_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="IBM Plex Sans Arabic", color="#9A9A8E", size=11),
+    font=dict(family="IBM Plex Sans Arabic", color="#73726C", size=11),
     margin=dict(l=0, r=0, t=10, b=0),
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
                 font=dict(size=11), bgcolor="rgba(0,0,0,0)"),
-    xaxis=dict(gridcolor="#1E2A3A", linecolor="#2A3050", tickfont=dict(size=10)),
-    yaxis=dict(gridcolor="#1E2A3A", linecolor="#2A3050", tickfont=dict(size=10)),
+    xaxis=dict(gridcolor="#E8EDF2", linecolor="#D0D5DD", tickfont=dict(size=10)),
+    yaxis=dict(gridcolor="#E8EDF2", linecolor="#D0D5DD", tickfont=dict(size=10)),
 )
 
 # ── SIDEBAR ───────────────────────────────────────────────
+# ── API KEY: من Secrets أو من الـ Sidebar ────────────────
+_secret_key = st.secrets.get("WINDSOR_API_KEY", "") if hasattr(st, "secrets") else ""
+
 with st.sidebar:
     st.markdown("""
     <div style="padding:16px 0 20px">
-      <div style="font-size:18px;font-weight:700;color:#E8E8E8">
+      <div style="font-size:18px;font-weight:700;color:#1A1A2E">
         <span style="color:#3266AD">●</span> Raneen
       </div>
-      <div style="font-size:11px;color:#9A9A8E;margin-top:4px">Analytics Dashboard</div>
+      <div style="font-size:11px;color:#73726C;margin-top:4px">Analytics Dashboard</div>
     </div>
     """, unsafe_allow_html=True)
 
-    api_key = st.text_input(
-        "Windsor API Key",
-        type="password",
-        placeholder="wnd_xxxxxxxxxxxx",
-        help="Get it from windsor.ai → Settings → API Keys",
-    )
+    if _secret_key:
+        api_key = _secret_key
+        st.success("✅ API Key محفوظ في Secrets", icon="🔒")
+    else:
+        api_key = st.text_input(
+            "Windsor API Key",
+            type="password",
+            placeholder="wnd_xxxxxxxxxxxx",
+            help="Get it from windsor.ai → Settings → API Keys",
+        )
 
     st.markdown("---")
 
@@ -286,7 +293,7 @@ if not api_key:
     st.markdown("""
     <div style="text-align:center;padding:60px 20px">
       <div style="font-size:48px;margin-bottom:16px">🔑</div>
-      <div style="font-size:20px;font-weight:600;color:#E8E8E8;margin-bottom:8px">
+      <div style="font-size:20px;font-weight:600;color:#1A1A2E;margin-bottom:8px">
         Enter Your Windsor API Key
       </div>
       <div style="font-size:14px;color:#9A9A8E;max-width:400px;margin:0 auto">
@@ -300,42 +307,109 @@ if not api_key:
 # ── LOAD DATA ─────────────────────────────────────────────
 @st.cache_data(ttl=300, show_spinner=False)
 def load_overview(key, preset):
-    return get_windsor_data(key, [
-        "date", "sessions", "active_users", "purchase_revenue",
-        "transactions", "bounce_rate", "add_to_carts",
-        "checkouts", "average_session_duration",
+    """Overview: split into 2 requests — session metrics + ecommerce metrics, merge on date."""
+    import pandas as pd
+    # Request 1: Session-level metrics
+    df1 = get_windsor_data(key, [
+        "date", "sessions", "active_users", "bounce_rate", "average_session_duration",
     ], date_preset=preset)
+    # Request 2: Ecommerce metrics
+    df2 = get_windsor_data(key, [
+        "date", "purchase_revenue", "transactions", "add_to_carts", "checkouts",
+    ], date_preset=preset)
+    if df1.empty and df2.empty:
+        return pd.DataFrame()
+    if df1.empty:
+        return df2
+    if df2.empty:
+        return df1
+    try:
+        merged = pd.merge(df1, df2, on="date", how="outer")
+        return merged
+    except Exception:
+        return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_channels(key, preset):
-    return get_windsor_data(key, [
+    """Channel: session + ecommerce — merge on channel group."""
+    import pandas as pd
+    df1 = get_windsor_data(key, [
         "session_default_channel_group", "sessions",
-        "purchase_revenue", "transactions", "add_to_carts", "checkouts",
     ], date_preset=preset)
+    df2 = get_windsor_data(key, [
+        "session_default_channel_group", "purchase_revenue", "transactions",
+        "add_to_carts", "checkouts",
+    ], date_preset=preset)
+    if df1.empty and df2.empty:
+        return pd.DataFrame()
+    if df1.empty: return df2
+    if df2.empty: return df1
+    try:
+        return pd.merge(df1, df2, on="session_default_channel_group", how="outer")
+    except Exception:
+        return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_devices(key, preset):
-    return get_windsor_data(key, [
-        "devicecategory", "sessions", "purchase_revenue",
-        "transactions", "bounce_rate", "engagement_rate",
+    """Devices: session + ecommerce — merge on devicecategory."""
+    import pandas as pd
+    df1 = get_windsor_data(key, [
+        "devicecategory", "sessions", "bounce_rate", "engagement_rate",
     ], date_preset=preset)
+    df2 = get_windsor_data(key, [
+        "devicecategory", "purchase_revenue", "transactions",
+    ], date_preset=preset)
+    if df1.empty and df2.empty:
+        return pd.DataFrame()
+    if df1.empty: return df2
+    if df2.empty: return df1
+    try:
+        return pd.merge(df1, df2, on="devicecategory", how="outer")
+    except Exception:
+        return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_new_returning(key, preset):
-    return get_windsor_data(key, [
-        "new_vs_returning", "sessions",
-        "active_users", "purchase_revenue", "transactions",
+    """New vs Returning: session + ecommerce — merge on segment."""
+    import pandas as pd
+    df1 = get_windsor_data(key, [
+        "new_vs_returning", "sessions", "active_users",
     ], date_preset=preset)
+    df2 = get_windsor_data(key, [
+        "new_vs_returning", "purchase_revenue", "transactions",
+    ], date_preset=preset)
+    if df1.empty and df2.empty:
+        return pd.DataFrame()
+    if df1.empty: return df2
+    if df2.empty: return df1
+    try:
+        return pd.merge(df1, df2, on="new_vs_returning", how="outer")
+    except Exception:
+        return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_campaigns(key, preset):
-    return get_windsor_data(key, [
+    """Campaigns: session + ecommerce — merge on campaign name."""
+    import pandas as pd
+    df1 = get_windsor_data(key, [
         "session_google_ads_campaign_name", "sessions",
-        "purchase_revenue", "transactions", "add_to_carts", "checkouts",
     ], date_preset=preset)
+    df2 = get_windsor_data(key, [
+        "session_google_ads_campaign_name", "purchase_revenue",
+        "transactions", "add_to_carts", "checkouts",
+    ], date_preset=preset)
+    if df1.empty and df2.empty:
+        return pd.DataFrame()
+    if df1.empty: return df2
+    if df2.empty: return df1
+    try:
+        return pd.merge(df1, df2, on="session_google_ads_campaign_name", how="outer")
+    except Exception:
+        return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_categories(key, preset):
+    """Categories: all ecommerce — same table, single request."""
     return get_windsor_data(key, [
         "item_category", "gross_item_revenue",
         "items_purchased", "items_viewed", "items_added_to_cart",
@@ -343,6 +417,7 @@ def load_categories(key, preset):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_products(key, preset):
+    """Products: all ecommerce — same table, single request."""
     return get_windsor_data(key, [
         "item_name", "item_revenue",
         "items_purchased", "items_viewed", "items_added_to_cart",
@@ -350,16 +425,26 @@ def load_products(key, preset):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_campaign_products(key, preset):
-    """Products sold per campaign — uses item_name + campaign dimension."""
-    return get_windsor_data(key, [
-        "session_google_ads_campaign_name",
-        "item_name", "item_revenue",
-        "items_purchased", "items_added_to_cart",
+    """Campaign products: ecommerce + traffic source — merge on item_name."""
+    import pandas as pd
+    df1 = get_windsor_data(key, [
+        "session_google_ads_campaign_name", "sessions",
     ], date_preset=preset)
+    df2 = get_windsor_data(key, [
+        "item_name", "item_revenue", "items_purchased", "items_added_to_cart",
+    ], date_preset=preset)
+    # For campaign→product we need the cross-dimension — try direct combined request
+    df_combo = get_windsor_data(key, [
+        "session_google_ads_campaign_name", "item_name",
+        "item_revenue", "items_purchased",
+    ], date_preset=preset)
+    if not df_combo.empty:
+        return df_combo
+    return pd.DataFrame()
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_subcategory(key, preset, category: str):
-    """Load item_category2 breakdown inside a parent category."""
+    """Subcategory: all ecommerce — same table, single request."""
     return get_windsor_data(key, [
         "item_category", "item_category2",
         "gross_item_revenue", "items_purchased",
