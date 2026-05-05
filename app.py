@@ -8,15 +8,34 @@ import requests
 # ── WINDSOR HELPERS (inline) ─────────────────────────────
 WINDSOR_BASE = "https://connectors.windsor.ai/all"
 
+def _preset_to_dates(preset):
+    """Convert date_preset string to (date_from, date_to) strings."""
+    from datetime import date, timedelta
+    today = date.today()
+    mapping = {
+        "last_7d":    (today - timedelta(days=7),  today - timedelta(days=1)),
+        "last_14d":   (today - timedelta(days=14), today - timedelta(days=1)),
+        "last_30d":   (today - timedelta(days=30), today - timedelta(days=1)),
+        "last_90d":   (today - timedelta(days=90), today - timedelta(days=1)),
+        "this_month": (today.replace(day=1),        today - timedelta(days=1)),
+        "last_month": ((today.replace(day=1) - timedelta(days=1)).replace(day=1),
+                       today.replace(day=1) - timedelta(days=1)),
+    }
+    df, dt = mapping.get(preset, (today - timedelta(days=30), today - timedelta(days=1)))
+    return str(df), str(dt)
+
 def get_windsor_data(api_key, fields, date_preset="last_30d",
                      date_from=None, date_to=None, connector="googleanalytics4"):
-    params = {"api_key": api_key, "connector": connector,
-              "fields": ",".join(fields), "date_preset": date_preset}
-    if date_from:
-        params["date_from"] = date_from
-        params.pop("date_preset", None)
-    if date_to:
-        params["date_to"] = date_to
+    # Always use explicit date_from/date_to — date_preset causes 500 errors
+    if not date_from or not date_to:
+        date_from, date_to = _preset_to_dates(date_preset)
+    params = {
+        "api_key":    api_key,
+        "connector":  connector,
+        "fields":     ",".join(fields),
+        "date_from":  date_from,
+        "date_to":    date_to,
+    }
     try:
         r = requests.get(WINDSOR_BASE, params=params, timeout=30)
         r.raise_for_status()
