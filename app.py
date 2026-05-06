@@ -24,13 +24,14 @@ def _preset_to_dates(preset):
     df, dt = mapping.get(preset, (today - timedelta(days=30), today - timedelta(days=1)))
     return str(df), str(dt)
 
-def get_windsor_data(fields, date_preset="last_30d"):
-    date_from, date_to = _preset_to_dates(date_preset)
+def get_windsor_data(fields, date_preset="last_30d", date_from=None, date_to=None):
+    if not date_from or not date_to:
+        date_from, date_to = _preset_to_dates(date_preset)
     params = {
         "api_key":   WINDSOR_KEY,
         "fields":    ",".join(fields),
-        "date_from": date_from,
-        "date_to":   date_to,
+        "date_from": str(date_from),
+        "date_to":   str(date_to),
     }
     try:
         r = requests.get(WINDSOR_BASE, params=params, timeout=30)
@@ -136,8 +137,12 @@ with st.sidebar:
     st.success("✅ Connected to GA4", icon="📊")
     st.markdown("---")
     date_preset = st.selectbox("Date Range",
-        ["last_30d","last_7d","last_14d","last_90d","this_month","last_month"],
-        format_func=lambda x: {"last_7d":"Last 7 Days","last_14d":"Last 14 Days","last_30d":"Last 30 Days","last_90d":"Last 90 Days","this_month":"This Month","last_month":"Last Month"}.get(x,x))
+        ["last_30d","last_7d","last_14d","last_90d","this_month","last_month","custom"],
+        format_func=lambda x: {"last_7d":"Last 7 Days","last_14d":"Last 14 Days","last_30d":"Last 30 Days","last_90d":"Last 90 Days","this_month":"This Month","last_month":"Last Month","custom":"Custom Range"}.get(x,x))
+    if date_preset == "custom":
+        from datetime import date, timedelta
+        custom_from = st.date_input("From", date.today() - timedelta(days=30))
+        custom_to   = st.date_input("To",   date.today() - timedelta(days=1))
     st.markdown("---")
     active_tab = st.radio("Section",
         ["Overview","Funnel","Traffic","Devices","E-Commerce","Campaigns","Insights"],
@@ -153,9 +158,9 @@ st.markdown("""<div class="top-bar">
 
 # ── LOAD DATA ─────────────────────────────────────────────
 @st.cache_data(ttl=300, show_spinner=False)
-def load_overview(preset):
-    df1 = get_windsor_data(["date","sessions","active_users","bounce_rate","average_session_duration"], preset)
-    df2 = get_windsor_data(["date","purchase_revenue","transactions","add_to_carts","checkouts"], preset)
+def load_overview(preset, d_from=None, d_to=None):
+    df1 = get_windsor_data(["date","sessions","active_users","bounce_rate","average_session_duration"], preset, d_from, d_to)
+    df2 = get_windsor_data(["date","purchase_revenue","transactions","add_to_carts","checkouts"], preset, d_from, d_to)
     if df1.empty and df2.empty: return pd.DataFrame()
     if df1.empty: return df2
     if df2.empty: return df1
@@ -163,9 +168,9 @@ def load_overview(preset):
     except: return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
-def load_channels(preset):
-    df1 = get_windsor_data(["session_default_channel_group","sessions"], preset)
-    df2 = get_windsor_data(["session_default_channel_group","purchase_revenue","transactions","add_to_carts","checkouts"], preset)
+def load_channels(preset, d_from=None, d_to=None):
+    df1 = get_windsor_data(["session_default_channel_group","sessions"], preset, d_from, d_to)
+    df2 = get_windsor_data(["session_default_channel_group","purchase_revenue","transactions","add_to_carts","checkouts"], preset, d_from, d_to)
     if df1.empty and df2.empty: return pd.DataFrame()
     if df1.empty: return df2
     if df2.empty: return df1
@@ -173,9 +178,9 @@ def load_channels(preset):
     except: return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
-def load_devices(preset):
-    df1 = get_windsor_data(["devicecategory","sessions","bounce_rate","engagement_rate"], preset)
-    df2 = get_windsor_data(["devicecategory","purchase_revenue","transactions"], preset)
+def load_devices(preset, d_from=None, d_to=None):
+    df1 = get_windsor_data(["devicecategory","sessions","bounce_rate","engagement_rate"], preset, d_from, d_to)
+    df2 = get_windsor_data(["devicecategory","purchase_revenue","transactions"], preset, d_from, d_to)
     if df1.empty and df2.empty: return pd.DataFrame()
     if df1.empty: return df2
     if df2.empty: return df1
@@ -183,9 +188,9 @@ def load_devices(preset):
     except: return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
-def load_new_returning(preset):
-    df1 = get_windsor_data(["new_vs_returning","sessions","active_users"], preset)
-    df2 = get_windsor_data(["new_vs_returning","purchase_revenue","transactions"], preset)
+def load_new_returning(preset, d_from=None, d_to=None):
+    df1 = get_windsor_data(["new_vs_returning","sessions","active_users"], preset, d_from, d_to)
+    df2 = get_windsor_data(["new_vs_returning","purchase_revenue","transactions"], preset, d_from, d_to)
     if df1.empty and df2.empty: return pd.DataFrame()
     if df1.empty: return df2
     if df2.empty: return df1
@@ -193,9 +198,9 @@ def load_new_returning(preset):
     except: return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
-def load_campaigns(preset):
-    df1 = get_windsor_data(["session_google_ads_campaign_name","sessions"], preset)
-    df2 = get_windsor_data(["session_google_ads_campaign_name","purchase_revenue","transactions","add_to_carts","checkouts"], preset)
+def load_campaigns(preset, d_from=None, d_to=None):
+    df1 = get_windsor_data(["session_google_ads_campaign_name","sessions"], preset, d_from, d_to)
+    df2 = get_windsor_data(["session_google_ads_campaign_name","purchase_revenue","transactions","add_to_carts","checkouts"], preset, d_from, d_to)
     if df1.empty and df2.empty: return pd.DataFrame()
     if df1.empty: return df2
     if df2.empty: return df1
@@ -203,27 +208,43 @@ def load_campaigns(preset):
     except: return df1
 
 @st.cache_data(ttl=300, show_spinner=False)
-def load_categories(preset):
-    return get_windsor_data(["item_category","gross_item_revenue","items_purchased","items_viewed","items_added_to_cart"], preset)
+def load_categories(preset, d_from=None, d_to=None):
+    return get_windsor_data(["item_category","gross_item_revenue","items_purchased","items_viewed","items_added_to_cart"], preset, d_from, d_to)
 
 @st.cache_data(ttl=300, show_spinner=False)
-def load_products(preset):
-    return get_windsor_data(["item_name","item_revenue","items_purchased","items_viewed","items_added_to_cart"], preset)
+def load_products(preset, d_from=None, d_to=None):
+    return get_windsor_data(["item_name","item_revenue","items_purchased","items_viewed","items_added_to_cart"], preset, d_from, d_to)
 
 @st.cache_data(ttl=300, show_spinner=False)
-def load_subcategory(preset):
-    return get_windsor_data(["item_category","item_category2","gross_item_revenue","items_purchased","items_viewed","items_added_to_cart"], preset)
+def load_subcategory(preset, d_from=None, d_to=None):
+    return get_windsor_data(["item_category","item_category2","gross_item_revenue","items_purchased","items_viewed","items_added_to_cart"], preset, d_from, d_to)
 
 @st.cache_data(ttl=300, show_spinner=False)
-def load_campaign_products(preset):
-    return get_windsor_data(["session_google_ads_campaign_name","item_name","item_revenue","items_purchased"], preset)
+def load_campaign_products(preset, d_from=None, d_to=None):
+    return get_windsor_data(["session_google_ads_campaign_name","item_name","item_revenue","items_purchased"], preset, d_from, d_to)
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_category_funnel(preset, d_from=None, d_to=None):
+    """Category funnel: item_category x item_category2 x item_category3 with full funnel metrics."""
+    return get_windsor_data([
+        "item_category","item_category2","item_category3",
+        "gross_item_revenue","items_purchased",
+        "items_viewed","items_added_to_cart","item_revenue"
+    ], preset, d_from, d_to)
+
+# ── Resolve custom dates ─────────────────────────
+if date_preset == "custom":
+    _d_from = str(custom_from)
+    _d_to   = str(custom_to)
+else:
+    _d_from, _d_to = None, None
 
 with st.spinner("⏳ Loading GA4 data..."):
-    df_ov = load_overview(date_preset)
-    df_ch = load_channels(date_preset)
-    df_dv = load_devices(date_preset)
-    df_nr = load_new_returning(date_preset)
-    df_cp = load_campaigns(date_preset)
+    df_ov = load_overview(date_preset, _d_from, _d_to)
+    df_ch = load_channels(date_preset, _d_from, _d_to)
+    df_dv = load_devices(date_preset, _d_from, _d_to)
+    df_nr = load_new_returning(date_preset, _d_from, _d_to)
+    df_cp = load_campaigns(date_preset, _d_from, _d_to)
 
 if df_ov.empty:
     st.error("❌ Could not load data. Windsor API error — check logs.")
@@ -325,27 +346,49 @@ if active_tab == "Overview":
 # FUNNEL
 # ═══════════════════════════════════════════════════════════
 elif active_tab == "Funnel":
-    st.markdown(section_header("Sales Funnel", "Session → Purchase", "#3266AD"), unsafe_allow_html=True)
-    for label, count, pct, color in [
-        ("Sessions", tot_sessions, 100.0, "#3266AD"),
-        ("Add to Cart", tot_carts, tot_carts/tot_sessions*100 if tot_sessions else 0, "#378ADD"),
-        ("Checkout Start", tot_checkouts, tot_checkouts/tot_sessions*100 if tot_sessions else 0, "#85B7EB"),
-        ("Purchase", tot_orders, cvr, "#1D9E75"),
-    ]:
+    st.markdown(section_header("Sales Funnel", "Item Views → Purchase", "#3266AD"), unsafe_allow_html=True)
+
+    # Load item views for funnel
+    with st.spinner("Loading funnel data..."):
+        df_funnel_items = load_categories(date_preset, _d_from, _d_to)
+
+    tot_items_viewed = safe_num(df_funnel_items["items_viewed"].sum()) if not df_funnel_items.empty and "items_viewed" in df_funnel_items.columns else 0
+    tot_items_carted = safe_num(df_funnel_items["items_added_to_cart"].sum()) if not df_funnel_items.empty and "items_added_to_cart" in df_funnel_items.columns else 0
+
+    # Use items_viewed as base if available, else sessions
+    base_val   = tot_items_viewed if tot_items_viewed > 0 else tot_sessions
+    base_label = "Items Viewed" if tot_items_viewed > 0 else "Sessions"
+
+    funnel_steps = [
+        (base_label,      base_val,      100.0,                                           "#3266AD"),
+        ("Add to Cart",   tot_items_carted if tot_items_carted>0 else tot_carts,
+                          (tot_items_carted/base_val*100 if base_val else 0) if tot_items_carted>0 else (tot_carts/base_val*100 if base_val else 0), "#378ADD"),
+        ("Checkout Start",tot_checkouts, tot_checkouts/base_val*100 if base_val else 0,   "#85B7EB"),
+        ("Purchase",      tot_orders,    tot_orders/base_val*100 if base_val else 0,      "#1D9E75"),
+    ]
+
+    for label, count, pct, color in funnel_steps:
         bw = max(pct, 0.5)
         st.markdown(f"""<div class="funnel-row"><div class="funnel-label">{label}</div>
         <div class="funnel-track"><div class="funnel-fill" style="width:{bw}%;background:{color}">
         {'&nbsp;'+fmt_number(count) if bw > 8 else ''}</div></div>
         <div class="funnel-pct" style="color:{color}">{pct:.2f}%</div></div>""", unsafe_allow_html=True)
+
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
     c1,c2,c3 = st.columns(3)
-    cart_drop=(1-tot_carts/tot_sessions)*100 if tot_sessions else 0
-    chk_drop=(1-tot_checkouts/tot_carts)*100 if tot_carts else 0
-    pur_drop=(1-tot_orders/tot_checkouts)*100 if tot_checkouts else 0
-    with c1: st.markdown(kpi_card("Session → Cart", fmt_pct(100-cart_drop,1), f"⚠ {cart_drop:.1f}% drop off", "warn", accent_color="#EF9F27"), unsafe_allow_html=True)
-    with c2: st.markdown(kpi_card("Cart → Checkout", fmt_pct(100-chk_drop,1), f"⚠ {chk_drop:.1f}% abandon cart", "down", accent_color="#D85A30"), unsafe_allow_html=True)
-    with c3: st.markdown(kpi_card("Checkout → Purchase", fmt_pct(100-pur_drop,1), f"⚠ {pur_drop:.1f}% drop", "down" if pur_drop>50 else "warn", accent_color="#D85A30"), unsafe_allow_html=True)
-    fig = go.Figure(go.Funnel(y=["Sessions","Add to Cart","Checkout","Purchase"], x=[tot_sessions,tot_carts,tot_checkouts,tot_orders], textinfo="value+percent initial", marker=dict(color=["#3266AD","#378ADD","#85B7EB","#1D9E75"])))
+    _cart_v = tot_items_carted if tot_items_carted>0 else tot_carts
+    view_drop = (1 - _cart_v/base_val)*100 if base_val else 0
+    chk_drop  = (1 - tot_checkouts/_cart_v)*100 if _cart_v else 0
+    pur_drop  = (1 - tot_orders/tot_checkouts)*100 if tot_checkouts else 0
+    with c1: st.markdown(kpi_card("View → Cart",     fmt_pct(100-view_drop,1), f"⚠ {view_drop:.1f}% drop",    "warn", accent_color="#EF9F27"), unsafe_allow_html=True)
+    with c2: st.markdown(kpi_card("Cart → Checkout", fmt_pct(100-chk_drop,1),  f"⚠ {chk_drop:.1f}% abandon",  "down", accent_color="#D85A30"), unsafe_allow_html=True)
+    with c3: st.markdown(kpi_card("Checkout → Buy",  fmt_pct(100-pur_drop,1),  f"⚠ {pur_drop:.1f}% drop",     "down" if pur_drop>50 else "warn", accent_color="#D85A30"), unsafe_allow_html=True)
+
+    fig = go.Figure(go.Funnel(
+        y=[base_label,"Add to Cart","Checkout","Purchase"],
+        x=[base_val, _cart_v, tot_checkouts, tot_orders],
+        textinfo="value+percent initial",
+        marker=dict(color=["#3266AD","#378ADD","#85B7EB","#1D9E75"])))
     fig.update_layout(**PLOT_LAYOUT, height=320)
     st.plotly_chart(fig, use_container_width=True)
     if not df_nr.empty and "new_vs_returning" in df_nr.columns:
@@ -427,9 +470,9 @@ elif active_tab == "Devices":
 elif active_tab == "E-Commerce":
     st.markdown(section_header("E-Commerce Insights", "Products & Categories", "#1D9E75"), unsafe_allow_html=True)
     with st.spinner("Loading e-commerce data..."):
-        df_cat = load_categories(date_preset)
-        df_prod = load_products(date_preset)
-        df_sub = load_subcategory(date_preset)
+        df_cat = load_categories(date_preset, _d_from, _d_to)
+        df_prod = load_products(date_preset, _d_from, _d_to)
+        df_sub = load_subcategory(date_preset, _d_from, _d_to)
     RANEEN_CATS=["الأجهزة المنزلية","الأثاث","الإلكترونيات","المطبخ","موبايلات","المفروشات","عروض رنين","المنزل","المنتجات العائلية","الأزياء و الموضة"]
     CAT_ICONS={"الأجهزة المنزلية":"🏠","الأثاث":"🛋️","الإلكترونيات":"📺","المطبخ":"🍳","موبايلات":"📱","المفروشات":"🛏️","عروض رنين":"🏷️","المنزل":"🪴","المنتجات العائلية":"👨‍👩‍👧","الأزياء و الموضة":"👗"}
     CAT_COLORS=["#3266AD","#378ADD","#85B7EB","#1D9E75","#5DCAA5","#EF9F27","#7F77DD","#D85A30","#888780","#B5D4F4"]
@@ -490,6 +533,102 @@ elif active_tab == "E-Commerce":
             rows.append(f"<tr><td style='color:#9A9A8E'>{i}</td><td>{nm}</td><td><b style='color:#1D9E75'>{fmt_currency(r['item_revenue'])}</b></td><td>{int(r['items_purchased'])}</td><td>{fmt_number(vw)}</td><td><span class='badge {bc}'>{cr_:.1f}%</span></td></tr>")
         st.markdown(f"<table class='styled-table'><thead><tr><th>#</th><th>Product</th><th>Revenue</th><th>Units</th><th>Views</th><th>Cart%</th></tr></thead><tbody>{''.join(rows)}</tbody></table>", unsafe_allow_html=True)
 
+    # ── CATEGORY FUNNEL TABLE ────────────────────────────────
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    st.markdown(section_header("Category Funnel", "Views → Cart → Purchase بالفئة", "#D85A30"), unsafe_allow_html=True)
+    st.caption("اختار الفئة لترى الـ Funnel الكاملة جوها")
+
+    with st.spinner("Loading category funnel..."):
+        df_cfunnel = load_category_funnel(date_preset, _d_from, _d_to)
+
+    if not df_cfunnel.empty:
+        for col in ["gross_item_revenue","items_purchased","items_viewed","items_added_to_cart"]:
+            if col in df_cfunnel.columns:
+                df_cfunnel[col] = df_cfunnel[col].apply(safe_num)
+
+        fc1, fc2, fc3 = st.columns(3)
+        all_cat1 = ["الكل"] + sorted([x for x in df_cfunnel["item_category"].dropna().unique() if x and x != "(not set)"])
+        sel_cat1 = fc1.selectbox("Category 1", all_cat1, key="cf_cat1")
+
+        df_cf_f = df_cfunnel.copy()
+        if sel_cat1 != "الكل":
+            df_cf_f = df_cf_f[df_cf_f["item_category"] == sel_cat1]
+
+        all_cat2 = ["الكل"] + sorted([x for x in df_cf_f["item_category2"].dropna().unique() if x and x != "(not set)"]) if "item_category2" in df_cf_f.columns else ["الكل"]
+        sel_cat2 = fc2.selectbox("Category 2", all_cat2, key="cf_cat2")
+        if sel_cat2 != "الكل" and "item_category2" in df_cf_f.columns:
+            df_cf_f = df_cf_f[df_cf_f["item_category2"] == sel_cat2]
+
+        all_cat3 = ["الكل"] + sorted([x for x in df_cf_f["item_category3"].dropna().unique() if x and x != "(not set)"]) if "item_category3" in df_cf_f.columns else ["الكل"]
+        sel_cat3 = fc3.selectbox("Category 3", all_cat3, key="cf_cat3")
+        if sel_cat3 != "الكل" and "item_category3" in df_cf_f.columns:
+            df_cf_f = df_cf_f[df_cf_f["item_category3"] == sel_cat3]
+
+        # Determine groupby level
+        if sel_cat2 != "الكل" and "item_category3" in df_cf_f.columns and len(all_cat3) > 1:
+            grp_col, grp_label = "item_category3", "Category 3"
+        elif sel_cat1 != "الكل" and "item_category2" in df_cf_f.columns:
+            grp_col, grp_label = "item_category2", "Category 2"
+        else:
+            grp_col, grp_label = "item_category", "Category 1"
+
+        df_cf_g = df_cf_f.groupby(grp_col).sum(numeric_only=True).reset_index()
+        df_cf_g = df_cf_g[df_cf_g["gross_item_revenue"] > 0].sort_values("gross_item_revenue", ascending=False)
+
+        if not df_cf_g.empty:
+            max_views = df_cf_g["items_viewed"].max()
+            cat_rows = []
+            for _, r in df_cf_g.iterrows():
+                views = safe_num(r.get("items_viewed", 0))
+                carts = safe_num(r.get("items_added_to_cart", 0))
+                purch = safe_num(r.get("items_purchased", 0))
+                rev   = safe_num(r.get("gross_item_revenue", 0))
+                v2c   = carts/views*100 if views > 0 else 0
+                c2p   = purch/carts*100 if carts > 0 else 0
+                v2p   = purch/views*100 if views > 0 else 0
+                aov_c = rev/purch       if purch > 0 else 0
+                bar_w = views/max_views*100 if max_views > 0 else 0
+                v2c_s = "color:#1D9E75;font-weight:600" if v2c>5 else "color:#EF9F27;font-weight:600" if v2c>2 else "color:#D85A30;font-weight:600"
+                c2p_s = "color:#1D9E75;font-weight:600" if c2p>30 else "color:#EF9F27;font-weight:600" if c2p>15 else "color:#D85A30;font-weight:600"
+                cat_rows.append(f"""<tr>
+                  <td><b>{r[grp_col]}</b></td>
+                  <td><div style="display:flex;align-items:center;gap:6px">
+                    <div style="flex:1;height:5px;background:#F0F2F5;border-radius:3px;overflow:hidden">
+                      <div style="width:{bar_w:.0f}%;height:100%;background:#3266AD;border-radius:3px"></div>
+                    </div><span style="font-size:11px;min-width:40px;text-align:right">{fmt_number(views)}</span>
+                  </div></td>
+                  <td>{fmt_number(carts)}</td>
+                  <td><span style="{v2c_s}">{v2c:.1f}%</span></td>
+                  <td>{fmt_number(purch)}</td>
+                  <td><span style="{c2p_s}">{c2p:.1f}%</span></td>
+                  <td><span style="color:#7F77DD;font-weight:600">{v2p:.2f}%</span></td>
+                  <td><b style="color:#1D9E75">{fmt_currency(rev)}</b></td>
+                  <td>{fmt_currency(aov_c,0)}</td>
+                </tr>""")
+
+            st.markdown(f"""<table class='styled-table'>
+              <thead><tr>
+                <th>{grp_label}</th><th>Views</th><th>Carts</th>
+                <th>View→Cart</th><th>Purchases</th><th>Cart→Buy</th>
+                <th>View→Buy</th><th>Revenue</th><th>AOV</th>
+              </tr></thead>
+              <tbody>{''.join(cat_rows)}</tbody>
+            </table>""", unsafe_allow_html=True)
+
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+            fig_cf = go.Figure(go.Funnel(
+                y=["Items Viewed","Added to Cart","Purchased"],
+                x=[df_cf_g["items_viewed"].sum(), df_cf_g["items_added_to_cart"].sum(), df_cf_g["items_purchased"].sum()],
+                textinfo="value+percent initial",
+                marker=dict(color=["#3266AD","#378ADD","#1D9E75"]),
+            ))
+            fig_cf.update_layout(**PLOT_LAYOUT, height=250)
+            st.plotly_chart(fig_cf, use_container_width=True)
+        else:
+            st.info("مفيش بيانات للفئة دي.")
+    else:
+        st.info("مفيش بيانات category funnel.")
+
 # ═══════════════════════════════════════════════════════════
 # CAMPAIGNS
 # ═══════════════════════════════════════════════════════════
@@ -535,7 +674,7 @@ elif active_tab == "Campaigns":
         st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
         st.markdown(section_header("Campaign → Products", "إيه المنتجات اللي باعتها كل حملة؟", "#7F77DD"), unsafe_allow_html=True)
         with st.spinner("Loading campaign products..."):
-            df_cpp=load_campaign_products(date_preset)
+            df_cpp=load_campaign_products(date_preset, _d_from, _d_to)
         camp_list=df_p["session_google_ads_campaign_name"].tolist()
         sel_camp=st.selectbox("اختار الحملة", camp_list, key="camp_sel")
         if not df_cpp.empty and "session_google_ads_campaign_name" in df_cpp.columns and "item_name" in df_cpp.columns:
