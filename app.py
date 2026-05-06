@@ -7,7 +7,7 @@ import requests
 
 # ── WINDSOR HELPERS (inline) ─────────────────────────────
 WINDSOR_KEY = "07860593d1fd31be68db99f090568a1202be"
-WINDSOR_BASE = "https://connectors.windsor.ai/all"
+WINDSOR_BASE = "https://connectors.windsor.ai/googleanalytics4"
 
 def _preset_to_dates(preset):
     from datetime import date, timedelta
@@ -28,7 +28,6 @@ def get_windsor_data(fields, date_preset="last_30d"):
     date_from, date_to = _preset_to_dates(date_preset)
     params = {
         "api_key":   WINDSOR_KEY,
-        "connector": "googleanalytics4",
         "fields":    ",".join(fields),
         "date_from": date_from,
         "date_to":   date_to,
