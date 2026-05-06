@@ -145,7 +145,7 @@ with st.sidebar:
         custom_to   = st.date_input("To",   date.today() - timedelta(days=1))
     st.markdown("---")
     active_tab = st.radio("Section",
-        ["Overview","Funnel","Traffic","Devices","E-Commerce","Campaigns","Insights"],
+        ["Overview","Funnel","Traffic","Devices","E-Commerce","Campaigns","Users","Insights"],
         label_visibility="collapsed")
     st.markdown("---")
     st.markdown('<div style="font-size:10px;color:#9A9A8E;line-height:1.6">Data source: Google Analytics 4<br>via Windsor.ai<br><span style="color:#1D9E75">● Live</span> — refreshes on load</div>', unsafe_allow_html=True)
@@ -238,6 +238,53 @@ if date_preset == "custom":
     _d_to   = str(custom_to)
 else:
     _d_from, _d_to = None, None
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_users_nr(preset, d_from=None, d_to=None):
+    """New vs Returning with full metrics."""
+    df1 = get_windsor_data(["new_vs_returning","sessions","active_users","bounce_rate"], preset, d_from, d_to)
+    df2 = get_windsor_data(["new_vs_returning","purchase_revenue","transactions","add_to_carts","checkouts"], preset, d_from, d_to)
+    if df1.empty and df2.empty: return pd.DataFrame()
+    if df1.empty: return df2
+    if df2.empty: return df1
+    try: return pd.merge(df1, df2, on="new_vs_returning", how="outer")
+    except: return df1
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_users_device(preset, d_from=None, d_to=None):
+    """Device breakdown with user metrics."""
+    df1 = get_windsor_data(["devicecategory","sessions","active_users","bounce_rate","average_session_duration"], preset, d_from, d_to)
+    df2 = get_windsor_data(["devicecategory","purchase_revenue","transactions","add_to_carts"], preset, d_from, d_to)
+    if df1.empty and df2.empty: return pd.DataFrame()
+    if df1.empty: return df2
+    if df2.empty: return df1
+    try: return pd.merge(df1, df2, on="devicecategory", how="outer")
+    except: return df1
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_users_channel(preset, d_from=None, d_to=None):
+    """Channel breakdown for user acquisition."""
+    df1 = get_windsor_data(["session_default_channel_group","sessions","active_users","bounce_rate"], preset, d_from, d_to)
+    df2 = get_windsor_data(["session_default_channel_group","purchase_revenue","transactions"], preset, d_from, d_to)
+    if df1.empty and df2.empty: return pd.DataFrame()
+    if df1.empty: return df2
+    if df2.empty: return df1
+    try: return pd.merge(df1, df2, on="session_default_channel_group", how="outer")
+    except: return df1
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_cohort(d_from=None, d_to=None):
+    """Monthly cohort: date x new_vs_returning for retention analysis — 90 days."""
+    from datetime import date, timedelta
+    df_from = d_from or str(date.today() - timedelta(days=90))
+    df_to   = d_to   or str(date.today() - timedelta(days=1))
+    df1 = get_windsor_data(["date","new_vs_returning","sessions","active_users"], "last_90d", df_from, df_to)
+    df2 = get_windsor_data(["date","new_vs_returning","purchase_revenue","transactions"], "last_90d", df_from, df_to)
+    if df1.empty and df2.empty: return pd.DataFrame()
+    if df1.empty: return df2
+    if df2.empty: return df1
+    try: return pd.merge(df1, df2, on=["date","new_vs_returning"], how="outer")
+    except: return df1
 
 with st.spinner("⏳ Loading GA4 data..."):
     df_ov = load_overview(date_preset, _d_from, _d_to)
@@ -699,6 +746,280 @@ elif active_tab == "Campaigns":
                 st.info("مفيش بيانات منتجات للحملة دي.")
         else:
             st.info("مفيش بيانات campaign products متاحة.")
+
+# ═══════════════════════════════════════════════════════════
+# USERS
+# ═══════════════════════════════════════════════════════════
+elif active_tab == "Users":
+    st.markdown(section_header("Users Analytics", "Demographics & Cohort Analysis", "#7F77DD"), unsafe_allow_html=True)
+
+    with st.spinner("Loading users data..."):
+        df_unr  = load_users_nr(date_preset, _d_from, _d_to)
+        df_udev = load_users_device(date_preset, _d_from, _d_to)
+        df_uch  = load_users_channel(date_preset, _d_from, _d_to)
+
+    # ── KPIs ────────────────────────────────────────────────
+    tot_users     = safe_num(df_unr["active_users"].sum())  if not df_unr.empty and "active_users" in df_unr.columns else 0
+    tot_new_u     = safe_num(df_unr[df_unr["new_vs_returning"]=="new"]["sessions"].sum()) if not df_unr.empty and "new_vs_returning" in df_unr.columns else 0
+    tot_ret_u     = safe_num(df_unr[df_unr["new_vs_returning"]=="returning"]["sessions"].sum()) if not df_unr.empty and "new_vs_returning" in df_unr.columns else 0
+    ret_rev       = safe_num(df_unr[df_unr["new_vs_returning"]=="returning"]["purchase_revenue"].sum()) if not df_unr.empty and "new_vs_returning" in df_unr.columns else 0
+    new_rev       = safe_num(df_unr[df_unr["new_vs_returning"]=="new"]["purchase_revenue"].sum()) if not df_unr.empty and "new_vs_returning" in df_unr.columns else 0
+    tot_u_rev     = ret_rev + new_rev
+    ret_pct       = ret_rev / tot_u_rev * 100 if tot_u_rev > 0 else 0
+    ret_txn       = safe_num(df_unr[df_unr["new_vs_returning"]=="returning"]["transactions"].sum()) if not df_unr.empty else 0
+    new_txn       = safe_num(df_unr[df_unr["new_vs_returning"]=="new"]["transactions"].sum()) if not df_unr.empty else 0
+    ret_cvr       = ret_txn / tot_ret_u * 100 if tot_ret_u > 0 else 0
+    new_cvr       = new_txn / tot_new_u * 100 if tot_new_u > 0 else 0
+    ret_aov       = ret_rev / ret_txn if ret_txn > 0 else 0
+    new_aov       = new_rev / new_txn if new_txn > 0 else 0
+
+    c1,c2,c3,c4 = st.columns(4)
+    with c1: st.markdown(kpi_card("Active Users", fmt_number(tot_users), "▲ Unique users", "up", accent_color="#7F77DD"), unsafe_allow_html=True)
+    with c2: st.markdown(kpi_card("New Users", fmt_number(tot_new_u), f"CVR: {fmt_pct(new_cvr,2)}", "neu", accent_color="#3266AD"), unsafe_allow_html=True)
+    with c3: st.markdown(kpi_card("Returning Users", fmt_number(tot_ret_u), f"CVR: {fmt_pct(ret_cvr,2)}", "up", accent_color="#1D9E75"), unsafe_allow_html=True)
+    with c4: st.markdown(kpi_card("Returning Revenue", fmt_currency(ret_rev), f"▲ {ret_pct:.1f}% of total", "up", accent_color="#1D9E75"), unsafe_allow_html=True)
+
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+    # ── NEW VS RETURNING BREAKDOWN ───────────────────────────
+    st.markdown(section_header("New vs Returning — Full Comparison", "", "#7F77DD"), unsafe_allow_html=True)
+
+    seg_data = []
+    if not df_unr.empty and "new_vs_returning" in df_unr.columns:
+        for col in ["sessions","active_users","purchase_revenue","transactions","add_to_carts","checkouts","bounce_rate"]:
+            if col in df_unr.columns: df_unr[col] = df_unr[col].apply(safe_num)
+        for seg in ["returning","new"]:
+            d = df_unr[df_unr["new_vs_returning"]==seg]
+            if d.empty: continue
+            ses = d["sessions"].sum(); rev = d["purchase_revenue"].sum()
+            txn = d["transactions"].sum(); crt = d["add_to_carts"].sum()
+            br  = d["bounce_rate"].mean()*100 if "bounce_rate" in d.columns else 0
+            _cvr = txn/ses*100 if ses>0 else 0
+            _aov = rev/txn if txn>0 else 0
+            _ca  = (1-txn/crt)*100 if crt>0 else 0
+            seg_data.append({
+                "Segment": seg.title(), "Sessions": ses, "Revenue": rev,
+                "Orders": txn, "CVR": _cvr, "AOV": _aov,
+                "Cart Abandon": _ca, "Bounce": br,
+            })
+
+    if seg_data:
+        # Visual comparison bars
+        col_l, col_r = st.columns(2)
+        with col_l:
+            st.markdown("**Revenue Split**")
+            for s in seg_data:
+                mx = max(x["Revenue"] for x in seg_data)
+                pct = s["Revenue"]/mx*100 if mx else 0
+                c = "#1D9E75" if s["Segment"]=="Returning" else "#3266AD"
+                st.markdown(bar_html(s["Segment"], pct, c, fmt_currency(s["Revenue"])), unsafe_allow_html=True)
+            st.markdown("**CVR Comparison**")
+            for s in seg_data:
+                mx = max(x["CVR"] for x in seg_data)
+                pct = s["CVR"]/mx*100 if mx else 0
+                c = "#1D9E75" if s["Segment"]=="Returning" else "#3266AD"
+                st.markdown(bar_html(s["Segment"], pct, c, fmt_pct(s["CVR"],2)), unsafe_allow_html=True)
+
+        with col_r:
+            st.markdown("**AOV Comparison**")
+            for s in seg_data:
+                mx = max(x["AOV"] for x in seg_data)
+                pct = s["AOV"]/mx*100 if mx else 0
+                c = "#1D9E75" if s["Segment"]=="Returning" else "#3266AD"
+                st.markdown(bar_html(s["Segment"], pct, c, fmt_currency(s["AOV"],0)), unsafe_allow_html=True)
+            st.markdown("**Cart Abandonment**")
+            for s in seg_data:
+                mx = max(x["Cart Abandon"] for x in seg_data)
+                pct = s["Cart Abandon"]/mx*100 if mx else 0
+                c = "#D85A30" if s["Cart Abandon"]>85 else "#EF9F27"
+                st.markdown(bar_html(s["Segment"], pct, c, fmt_pct(s["Cart Abandon"],1)), unsafe_allow_html=True)
+
+        # Full table
+        seg_rows = []
+        for s in seg_data:
+            bc = "badge-green" if s["Segment"]=="Returning" else "badge-blue"
+            seg_rows.append(f"""<tr>
+              <td><span class='badge {bc}'>{s["Segment"]}</span></td>
+              <td>{fmt_number(s["Sessions"])}</td>
+              <td><b style='color:#1D9E75'>{fmt_currency(s["Revenue"])}</b></td>
+              <td>{fmt_number(s["Orders"])}</td>
+              <td><b style='color:{"#1D9E75" if s["CVR"]>0.8 else "#EF9F27"}'>{fmt_pct(s["CVR"],2)}</b></td>
+              <td>{fmt_currency(s["AOV"],0)}</td>
+              <td style='color:{"#D85A30" if s["Cart Abandon"]>85 else "#EF9F27"}'>{fmt_pct(s["Cart Abandon"],1)}</td>
+              <td style='color:{"#D85A30" if s["Bounce"]>55 else "#EF9F27"}'>{fmt_pct(s["Bounce"],1)}</td>
+            </tr>""")
+        st.markdown(f"""<table class='styled-table'>
+          <thead><tr><th>Segment</th><th>Sessions</th><th>Revenue</th><th>Orders</th><th>CVR</th><th>AOV</th><th>Cart Abandon</th><th>Bounce</th></tr></thead>
+          <tbody>{''.join(seg_rows)}</tbody>
+        </table>""", unsafe_allow_html=True)
+
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+    # ── DEVICE USER ANALYSIS ────────────────────────────────
+    st.markdown(section_header("Users by Device", "Behavior per Platform", "#3266AD"), unsafe_allow_html=True)
+    if not df_udev.empty and "devicecategory" in df_udev.columns:
+        for col in ["sessions","active_users","purchase_revenue","transactions","bounce_rate","average_session_duration","add_to_carts"]:
+            if col in df_udev.columns: df_udev[col] = df_udev[col].apply(safe_num)
+        df_udev_f = df_udev[df_udev["devicecategory"].isin(["mobile","desktop","tablet"])].copy()
+        dev_rows = []
+        DC = {"mobile":"badge-blue","desktop":"badge-gray","tablet":"badge-green"}
+        for _,r in df_udev_f.sort_values("sessions",ascending=False).iterrows():
+            ses = r["sessions"]; rev = r["purchase_revenue"]; txn = r["transactions"]
+            br  = r["bounce_rate"]*100 if "bounce_rate" in r.index else 0
+            _cvr= txn/ses*100 if ses>0 else 0
+            _aov= rev/txn if txn>0 else 0
+            rps = rev/ses if ses>0 else 0
+            asd = r.get("average_session_duration",0)
+            m_  = int(asd//60); s_ = int(asd%60)
+            bc  = DC.get(r["devicecategory"],"badge-gray")
+            dev_rows.append(f"""<tr>
+              <td><span class='badge {bc}'>{r["devicecategory"].title()}</span></td>
+              <td>{fmt_number(ses)}</td>
+              <td><b style='color:#1D9E75'>{fmt_currency(rev)}</b></td>
+              <td>{fmt_number(txn)}</td>
+              <td><b style='color:{"#1D9E75" if _cvr>0.8 else "#EF9F27"}'>{fmt_pct(_cvr,2)}</b></td>
+              <td>{fmt_currency(_aov,0)}</td>
+              <td>{fmt_currency(rps,1)}</td>
+              <td style='color:{"#D85A30" if br>55 else "#EF9F27" if br>45 else "#1D9E75"}'>{fmt_pct(br,1)}</td>
+              <td>{m_}:{s_:02d} min</td>
+            </tr>""")
+        st.markdown(f"""<table class='styled-table'>
+          <thead><tr><th>Device</th><th>Sessions</th><th>Revenue</th><th>Orders</th><th>CVR</th><th>AOV</th><th>Rev/Session</th><th>Bounce</th><th>Avg Session</th></tr></thead>
+          <tbody>{''.join(dev_rows)}</tbody>
+        </table>""", unsafe_allow_html=True)
+
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+    # ── ACQUISITION CHANNEL USER ANALYSIS ───────────────────
+    st.markdown(section_header("Users by Acquisition Channel", "كيف وصلوا؟", "#EF9F27"), unsafe_allow_html=True)
+    if not df_uch.empty and "session_default_channel_group" in df_uch.columns:
+        for col in ["sessions","active_users","purchase_revenue","transactions","bounce_rate"]:
+            if col in df_uch.columns: df_uch[col] = df_uch[col].apply(safe_num)
+        df_uch_f = df_uch[df_uch["session_default_channel_group"].notna() & (df_uch["session_default_channel_group"]!="")].copy()
+        df_uch_f = df_uch_f.groupby("session_default_channel_group").sum(numeric_only=True).reset_index()
+        df_uch_f = df_uch_f[df_uch_f["sessions"]>10].sort_values("sessions",ascending=False)
+        uch_rows = []
+        for _,r in df_uch_f.iterrows():
+            ses=r["sessions"]; rev=r["purchase_revenue"]; txn=r["transactions"]
+            br=r["bounce_rate"]*100 if "bounce_rate" in r.index else 0
+            _cvr=txn/ses*100 if ses>0 else 0
+            rps=rev/ses if ses>0 else 0
+            uch_rows.append(f"""<tr>
+              <td><b>{r["session_default_channel_group"]}</b></td>
+              <td>{fmt_number(ses)}</td>
+              <td>{fmt_currency(rev)}</td>
+              <td>{fmt_number(txn)}</td>
+              <td><b style='color:{"#1D9E75" if _cvr>=1 else "#EF9F27" if _cvr>=0.5 else "#D85A30"}'>{fmt_pct(_cvr,2)}</b></td>
+              <td>{fmt_currency(rps,1)}</td>
+              <td style='color:{"#D85A30" if br>55 else "#EF9F27" if br>45 else "#1D9E75"}'>{fmt_pct(br,1)}</td>
+            </tr>""")
+        st.markdown(f"""<table class='styled-table'>
+          <thead><tr><th>Channel</th><th>Sessions</th><th>Revenue</th><th>Orders</th><th>CVR</th><th>Rev/Session</th><th>Bounce</th></tr></thead>
+          <tbody>{''.join(uch_rows)}</tbody>
+        </table>""", unsafe_allow_html=True)
+
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+    # ── COHORT ANALYSIS ──────────────────────────────────────
+    st.markdown(section_header("Cohort Analysis", "Returning Users بالشهر", "#D85A30"), unsafe_allow_html=True)
+    st.caption("كل صف = شهر · بيوضح New vs Returning sessions ونسبة الـ Retention")
+
+    with st.spinner("Loading cohort data (90 days)..."):
+        df_cohort = load_cohort(_d_from, _d_to)
+
+    if not df_cohort.empty and "date" in df_cohort.columns and "new_vs_returning" in df_cohort.columns:
+        for col in ["sessions","purchase_revenue","transactions","active_users"]:
+            if col in df_cohort.columns: df_cohort[col] = df_cohort[col].apply(safe_num)
+
+        df_cohort["date"] = pd.to_datetime(df_cohort["date"], errors="coerce")
+        df_cohort = df_cohort.dropna(subset=["date"])
+        df_cohort["month"] = df_cohort["date"].dt.to_period("M").astype(str)
+
+        # Monthly aggregation by new_vs_returning
+        df_monthly = df_cohort.groupby(["month","new_vs_returning"]).agg(
+            sessions=("sessions","sum"),
+            revenue=("purchase_revenue","sum"),
+            orders=("transactions","sum"),
+        ).reset_index()
+
+        months = sorted(df_monthly["month"].unique())
+
+        cohort_rows = []
+        for month in months:
+            m_data = df_monthly[df_monthly["month"]==month]
+            new_d  = m_data[m_data["new_vs_returning"]=="new"]
+            ret_d  = m_data[m_data["new_vs_returning"]=="returning"]
+            new_ses = safe_num(new_d["sessions"].sum())
+            ret_ses = safe_num(ret_d["sessions"].sum())
+            new_rev = safe_num(new_d["revenue"].sum())
+            ret_rev_ = safe_num(ret_d["revenue"].sum())
+            new_ord = safe_num(new_d["orders"].sum())
+            ret_ord = safe_num(ret_d["orders"].sum())
+            tot_ses = new_ses + ret_ses
+            ret_rate = ret_ses/tot_ses*100 if tot_ses > 0 else 0
+            tot_rev = new_rev + ret_rev_
+            ret_rev_pct = ret_rev_/tot_rev*100 if tot_rev > 0 else 0
+            new_cvr_ = new_ord/new_ses*100 if new_ses>0 else 0
+            ret_cvr_ = ret_ord/ret_ses*100 if ret_ses>0 else 0
+
+            # Color code retention rate
+            ret_color = "#1D9E75" if ret_rate>50 else "#EF9F27" if ret_rate>30 else "#D85A30"
+            bar_w = min(ret_rate, 100)
+
+            cohort_rows.append(f"""<tr>
+              <td><b>{month}</b></td>
+              <td>{fmt_number(new_ses)}</td>
+              <td>{fmt_number(ret_ses)}</td>
+              <td>
+                <div style='display:flex;align-items:center;gap:6px'>
+                  <div style='flex:1;height:6px;background:#F0F2F5;border-radius:3px;overflow:hidden'>
+                    <div style='width:{bar_w:.0f}%;height:100%;background:{ret_color};border-radius:3px'></div>
+                  </div>
+                  <span style='color:{ret_color};font-weight:600;min-width:38px;text-align:right'>{ret_rate:.1f}%</span>
+                </div>
+              </td>
+              <td>{fmt_currency(new_rev)}</td>
+              <td>{fmt_currency(ret_rev_)}</td>
+              <td><b style='color:{ret_color}'>{ret_rev_pct:.1f}%</b></td>
+              <td style='color:{"#EF9F27"}'>{fmt_pct(new_cvr_,2)}</td>
+              <td style='color:#1D9E75;font-weight:600'>{fmt_pct(ret_cvr_,2)}</td>
+            </tr>""")
+
+        st.markdown(f"""<table class='styled-table'>
+          <thead><tr>
+            <th>Month</th>
+            <th>New Sessions</th><th>Returning Sessions</th><th>Retention Rate</th>
+            <th>New Revenue</th><th>Returning Revenue</th><th>Rev Retention</th>
+            <th>New CVR</th><th>Returning CVR</th>
+          </tr></thead>
+          <tbody>{''.join(cohort_rows)}</tbody>
+        </table>""", unsafe_allow_html=True)
+
+        # Retention trend chart
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        months_list, ret_rates, new_revs, ret_revs = [], [], [], []
+        for month in months:
+            m_data = df_monthly[df_monthly["month"]==month]
+            ns = safe_num(m_data[m_data["new_vs_returning"]=="new"]["sessions"].sum())
+            rs = safe_num(m_data[m_data["new_vs_returning"]=="returning"]["sessions"].sum())
+            nr = safe_num(m_data[m_data["new_vs_returning"]=="new"]["revenue"].sum())
+            rr = safe_num(m_data[m_data["new_vs_returning"]=="returning"]["revenue"].sum())
+            tot = ns+rs
+            months_list.append(month)
+            ret_rates.append(rs/tot*100 if tot>0 else 0)
+            new_revs.append(nr/1000)
+            ret_revs.append(rr/1000)
+
+        fig_cohort = make_subplots(specs=[[{"secondary_y":True}]])
+        fig_cohort.add_trace(go.Bar(name="New Revenue K ج", x=months_list, y=new_revs, marker_color="rgba(50,102,173,0.7)"), secondary_y=False)
+        fig_cohort.add_trace(go.Bar(name="Returning Revenue K ج", x=months_list, y=ret_revs, marker_color="rgba(29,158,117,0.7)"), secondary_y=False)
+        fig_cohort.add_trace(go.Scatter(name="Retention Rate %", x=months_list, y=ret_rates, line=dict(color="#D85A30",width=2.5), mode="lines+markers", marker_size=7), secondary_y=True)
+        fig_cohort.update_layout(**PLOT_LAYOUT, height=300, barmode="group")
+        fig_cohort.update_yaxes(title_text="Revenue K ج", secondary_y=False)
+        fig_cohort.update_yaxes(title_text="Retention %", secondary_y=True, ticksuffix="%")
+        st.plotly_chart(fig_cohort, use_container_width=True)
+    else:
+        st.info("مفيش بيانات cohort كافية — محتاج على الأقل شهرين من الداتا.")
 
 # ═══════════════════════════════════════════════════════════
 # INSIGHTS
