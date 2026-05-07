@@ -224,6 +224,14 @@ def load_campaign_products(preset, d_from=None, d_to=None):
     return get_windsor_data(["session_google_ads_campaign_name","item_name","item_revenue","items_purchased"], preset, d_from, d_to)
 
 @st.cache_data(ttl=300, show_spinner=False)
+def load_meta_campaigns(preset, d_from=None, d_to=None):
+    """Meta campaigns via UTM — session_manual_campaign_name."""
+    return get_windsor_data([
+        "session_manual_campaign_name",
+        "sessions","purchase_revenue","transactions","add_to_carts"
+    ], preset, d_from, d_to)
+
+@st.cache_data(ttl=300, show_spinner=False)
 def load_landing_pages(preset, d_from=None, d_to=None):
     """Landing pages — try page_path and landing_page fields."""
     for dim in ["landing_page", "page_path", "page_title"]:
@@ -926,6 +934,129 @@ elif active_tab == "Campaigns":
                 st.info("مفيش بيانات منتجات للحملة دي.")
         else:
             st.info("مفيش بيانات campaign products متاحة.")
+
+    # ── META CAMPAIGNS ───────────────────────────────────────
+    st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
+    st.markdown(section_header("Meta Campaigns", "أداء كامبينز Facebook & Instagram في GA4", "#1877F2"), unsafe_allow_html=True)
+    st.caption("البيانات من GA4 عن طريق UTM parameters — session_manual_campaign_name")
+
+    with st.spinner("Loading Meta campaigns..."):
+        df_meta = load_meta_campaigns(date_preset, _d_from, _d_to)
+
+    if not df_meta.empty and "session_manual_campaign_name" in df_meta.columns:
+        for col in ["sessions","purchase_revenue","transactions","add_to_carts"]:
+            if col in df_meta.columns: df_meta[col] = df_meta[col].apply(safe_num)
+
+        # Filter out non-Meta (organic, not set, referral, Google)
+        exclude = ["(organic)","(not set)","(referral)","(direct)"]
+        df_meta_f = df_meta[
+            ~df_meta["session_manual_campaign_name"].isin(exclude) &
+            df_meta["session_manual_campaign_name"].notna() &
+            (df_meta["sessions"] > 5)
+        ].copy()
+
+        df_meta_f["cvr"] = df_meta_f.apply(lambda r: r["transactions"]/r["sessions"]*100 if r["sessions"]>0 else 0, axis=1)
+        df_meta_f["rps"] = df_meta_f.apply(lambda r: r["purchase_revenue"]/r["sessions"] if r["sessions"]>0 else 0, axis=1)
+        df_meta_f["aov"] = df_meta_f.apply(lambda r: r["purchase_revenue"]/r["transactions"] if r["transactions"]>0 else 0, axis=1)
+        df_meta_f = df_meta_f.sort_values("purchase_revenue", ascending=False)
+
+        # KPIs
+        tot_meta_rev = df_meta_f["purchase_revenue"].sum()
+        tot_meta_ses = df_meta_f["sessions"].sum()
+        tot_meta_ord = df_meta_f["transactions"].sum()
+        tot_meta_crt = df_meta_f["add_to_carts"].sum()
+        meta_cvr = tot_meta_ord/tot_meta_ses*100 if tot_meta_ses>0 else 0
+        meta_aov = tot_meta_rev/tot_meta_ord if tot_meta_ord>0 else 0
+
+        mk1,mk2,mk3,mk4 = st.columns(4)
+        with mk1: st.markdown(kpi_card("Meta Revenue", fmt_currency(tot_meta_rev), "via UTM campaigns", "up", accent_color="#1877F2"), unsafe_allow_html=True)
+        with mk2: st.markdown(kpi_card("Meta Sessions", fmt_number(tot_meta_ses), "من كل الكامبينز", "neu", accent_color="#1877F2"), unsafe_allow_html=True)
+        with mk3: st.markdown(kpi_card("Meta Orders", fmt_number(tot_meta_ord), f"CVR: {fmt_pct(meta_cvr,2)}", "up" if meta_cvr>0.5 else "warn", accent_color="#1877F2"), unsafe_allow_html=True)
+        with mk4: st.markdown(kpi_card("Meta AOV", fmt_currency(meta_aov,0), "متوسط قيمة الطلب", "neu", accent_color="#1877F2"), unsafe_allow_html=True)
+
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+        # Search + filter
+        mc1, mc2 = st.columns([3,1])
+        meta_search = mc1.text_input("🔍 Search campaign", placeholder="RT, Conv, Catalog...", key="meta_search")
+        meta_min_ses = mc2.number_input("Min Sessions", min_value=0, value=10, step=10, key="meta_min")
+
+        df_meta_show = df_meta_f[df_meta_f["sessions"] >= meta_min_ses]
+        if meta_search:
+            df_meta_show = df_meta_show[df_meta_show["session_manual_campaign_name"].str.contains(meta_search, case=False, na=False)]
+
+        # Revenue bars
+        col_l, col_r = st.columns(2)
+        with col_l:
+            st.markdown("**Top 10 — Revenue**")
+            mx = df_meta_show["purchase_revenue"].max()
+            MCOLS = ["#1877F2","#42A5F5","#1565C0","#0D47A1","#1E88E5","#2196F3","#64B5F6","#90CAF9","#BBDEFB","#E3F2FD"]
+            for i,(_,r) in enumerate(df_meta_show.head(10).iterrows()):
+                pct = r["purchase_revenue"]/mx*100 if mx else 0
+                nm = str(r["session_manual_campaign_name"])[:45]+("..." if len(str(r["session_manual_campaign_name"]))>45 else "")
+                st.markdown(bar_html(nm, pct, MCOLS[i%len(MCOLS)], fmt_currency(r["purchase_revenue"])), unsafe_allow_html=True)
+
+        with col_r:
+            st.markdown("**Top 10 — Rev/Session**")
+            df_rps_meta = df_meta_show[df_meta_show["transactions"]>0].sort_values("rps", ascending=False)
+            mx_rps = df_rps_meta["rps"].max()
+            for i,(_,r) in enumerate(df_rps_meta.head(10).iterrows()):
+                pct = r["rps"]/mx_rps*100 if mx_rps else 0
+                nm = str(r["session_manual_campaign_name"])[:45]+("..." if len(str(r["session_manual_campaign_name"]))>45 else "")
+                c = "#1D9E75" if pct>70 else "#1877F2" if pct>30 else "#D85A30"
+                st.markdown(bar_html(nm, pct, c, fmt_currency(r["rps"],1)), unsafe_allow_html=True)
+
+        # Full table
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        meta_rows = []
+        for _,r in df_meta_show.head(50).iterrows():
+            cv = r["cvr"]; rps_ = r["rps"]
+            nm = str(r["session_manual_campaign_name"])
+            crt = safe_num(r.get("add_to_carts",0))
+            ses = r["sessions"]
+            c2c = crt/ses*100 if ses>0 else 0
+
+            # Campaign type detection
+            nm_l = nm.lower()
+            if "rt |" in nm_l or nm_l.startswith("rt ") or "retention" in nm_l:
+                camp_type = '<span class="badge badge-purple">🔄 Retargeting</span>'
+            elif "prospective" in nm_l or "prosp" in nm_l:
+                camp_type = '<span class="badge badge-blue">🎯 Prospecting</span>'
+            elif "conv" in nm_l:
+                camp_type = '<span class="badge badge-green">💰 Conv</span>'
+            elif "traffic" in nm_l:
+                camp_type = '<span class="badge badge-gray">📡 Traffic</span>'
+            else:
+                camp_type = '<span class="badge badge-gray">📌 Other</span>'
+
+            if cv>=1.5: rating='<span class="badge badge-green">الأقوى</span>'
+            elif cv>=0.8: rating='<span class="badge badge-blue">جيد</span>'
+            elif cv>=0.3: rating='<span class="badge badge-amber">راجع</span>'
+            else: rating='<span class="badge badge-red">ضعيف</span>'
+
+            meta_rows.append(f"""<tr>
+              <td style="font-size:10px;max-width:220px"><b>{nm[:60]}{"..." if len(nm)>60 else ""}</b></td>
+              <td>{camp_type}</td>
+              <td>{fmt_number(ses)}</td>
+              <td><b style="color:#1877F2">{fmt_currency(r["purchase_revenue"])}</b></td>
+              <td>{fmt_number(r["transactions"])}</td>
+              <td><b style="color:{'#1D9E75' if cv>=1 else '#EF9F27' if cv>=0.3 else '#D85A30'}">{fmt_pct(cv,2)}</b></td>
+              <td>{fmt_pct(c2c,1)}</td>
+              <td>{fmt_currency(rps_,1)}</td>
+              <td>{fmt_currency(r["aov"],0)}</td>
+              <td>{rating}</td>
+            </tr>""")
+
+        st.markdown(f"""<table class='styled-table'>
+          <thead><tr>
+            <th>Campaign</th><th>Type</th><th>Sessions</th><th>Revenue</th>
+            <th>Orders</th><th>CVR</th><th>Cart%</th><th>Rev/Ses</th><th>AOV</th><th>Rating</th>
+          </tr></thead>
+          <tbody>{''.join(meta_rows)}</tbody>
+        </table>""", unsafe_allow_html=True)
+        st.caption(f"Showing {min(50,len(df_meta_show))} of {len(df_meta_show)} Meta campaigns · (organic), (not set), (referral) excluded")
+    else:
+        st.info("مفيش بيانات Meta campaigns — تأكد إن الـ UTM parameters شغالة على الـ Meta ads.")
 
 # ═══════════════════════════════════════════════════════════
 # USERS
