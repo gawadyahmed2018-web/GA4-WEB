@@ -1076,11 +1076,25 @@ elif active_tab == "Campaigns":
                 key="meta_camp_prod_sel"
             )
 
-            with st.spinner("Loading products..."):
-                df_mcp = load_meta_campaign_products(date_preset, _d_from, _d_to)
+            # Load on-demand — use last 30 days max to avoid timeout
+            @st.cache_data(ttl=300, show_spinner=False)
+            def _load_camp_prods(preset, d_from, d_to):
+                from datetime import date, timedelta
+                # Cap at 30 days to avoid timeout
+                if d_from and d_to:
+                    df = str(d_from); dt = str(d_to)
+                else:
+                    df = str(date.today()-timedelta(30)); dt = str(date.today()-timedelta(1))
+                return get_windsor_data([
+                    "session_manual_campaign_name","item_name",
+                    "item_revenue","items_purchased","items_added_to_cart"
+                ], preset, df, dt, timeout=55)
+
+            with st.spinner(f"⏳ Loading products..."):
+                df_mcp = _load_camp_prods(date_preset, _d_from, _d_to)
 
             if not df_mcp.empty and "session_manual_campaign_name" in df_mcp.columns and "item_name" in df_mcp.columns:
-                for col in ["item_revenue","items_purchased","items_added_to_cart","items_viewed"]:
+                for col in ["item_revenue","items_purchased","items_added_to_cart"]:
                     if col in df_mcp.columns: df_mcp[col] = df_mcp[col].apply(safe_num)
 
                 df_mcp_f = df_mcp[
@@ -1124,24 +1138,21 @@ elif active_tab == "Campaigns":
                     prod_rows = []
                     for i,(_,r) in enumerate(df_mcp_f.iterrows(), 1):
                         nm   = str(r["item_name"])[:65]+("..." if len(str(r["item_name"]))>65 else "")
-                        vw   = safe_num(r.get("items_viewed",0))
                         crt  = safe_num(r.get("items_added_to_cart",0))
                         pur  = safe_num(r.get("items_purchased",0))
                         rev  = safe_num(r.get("item_revenue",0))
-                        v2c  = crt/vw*100  if vw>0  else 0
-                        aov_ = rev/pur      if pur>0 else 0
+                        aov_ = rev/pur if pur>0 else 0
                         prod_rows.append(f"""<tr>
                           <td style="color:#9A9A8E">{i}</td>
                           <td>{nm}</td>
                           <td><b style="color:#1877F2">{fmt_currency(rev)}</b></td>
                           <td>{int(pur)}</td>
-                          <td>{fmt_number(vw)}</td>
-                          <td>{fmt_pct(v2c,1)}</td>
+                          <td>{int(crt)}</td>
                           <td>{fmt_currency(aov_,0)}</td>
                         </tr>""")
 
                     st.markdown(f"""<table class='styled-table'>
-                      <thead><tr><th>#</th><th>Product</th><th>Revenue</th><th>Units</th><th>Views</th><th>View→Cart</th><th>AOV</th></tr></thead>
+                      <thead><tr><th>#</th><th>Product</th><th>Revenue</th><th>Units</th><th>Carts</th><th>AOV</th></tr></thead>
                       <tbody>{''.join(prod_rows)}</tbody>
                     </table>""", unsafe_allow_html=True)
                 else:
