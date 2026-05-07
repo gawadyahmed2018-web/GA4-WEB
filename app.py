@@ -224,6 +224,14 @@ def load_campaign_products(preset, d_from=None, d_to=None):
     return get_windsor_data(["session_google_ads_campaign_name","item_name","item_revenue","items_purchased"], preset, d_from, d_to)
 
 @st.cache_data(ttl=300, show_spinner=False)
+def load_meta_campaign_products(preset, d_from=None, d_to=None):
+    """Products per Meta campaign via UTM."""
+    return get_windsor_data([
+        "session_manual_campaign_name","item_name",
+        "item_revenue","items_purchased","items_added_to_cart","items_viewed"
+    ], preset, d_from, d_to, timeout=60)
+
+@st.cache_data(ttl=300, show_spinner=False)
 def load_meta_campaigns(preset, d_from=None, d_to=None):
     """Meta campaigns via UTM — session_manual_campaign_name."""
     return get_windsor_data([
@@ -1055,6 +1063,93 @@ elif active_tab == "Campaigns":
           <tbody>{''.join(meta_rows)}</tbody>
         </table>""", unsafe_allow_html=True)
         st.caption(f"Showing {min(50,len(df_meta_show))} of {len(df_meta_show)} Meta campaigns · (organic), (not set), (referral) excluded")
+
+        # ── CAMPAIGN → PRODUCTS DRILL-DOWN ───────────────────
+        st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+        st.markdown(section_header("Meta Campaign → Products", "إيه المنتجات اللي باعتها كل كامبين؟", "#1877F2"), unsafe_allow_html=True)
+
+        camp_options = df_meta_f[df_meta_f["transactions"]>0]["session_manual_campaign_name"].tolist()
+        if camp_options:
+            selected_meta_camp = st.selectbox(
+                "اختار الكامبين",
+                options=camp_options,
+                key="meta_camp_prod_sel"
+            )
+
+            with st.spinner("Loading products..."):
+                df_mcp = load_meta_campaign_products(date_preset, _d_from, _d_to)
+
+            if not df_mcp.empty and "session_manual_campaign_name" in df_mcp.columns and "item_name" in df_mcp.columns:
+                for col in ["item_revenue","items_purchased","items_added_to_cart","items_viewed"]:
+                    if col in df_mcp.columns: df_mcp[col] = df_mcp[col].apply(safe_num)
+
+                df_mcp_f = df_mcp[
+                    (df_mcp["session_manual_campaign_name"] == selected_meta_camp) &
+                    df_mcp["item_name"].notna() &
+                    (df_mcp["item_name"] != "(not set)") &
+                    (df_mcp["item_revenue"] > 0)
+                ].sort_values("item_revenue", ascending=False)
+
+                if not df_mcp_f.empty:
+                    camp_rev   = df_mcp_f["item_revenue"].sum()
+                    camp_units = df_mcp_f["items_purchased"].sum()
+                    camp_skus  = len(df_mcp_f)
+
+                    pk1,pk2,pk3 = st.columns(3)
+                    with pk1: st.markdown(kpi_card("Campaign Revenue", fmt_currency(camp_rev), selected_meta_camp[:30], "up", accent_color="#1877F2"), unsafe_allow_html=True)
+                    with pk2: st.markdown(kpi_card("Units Sold", fmt_number(camp_units), "من الكامبين دي", "up", accent_color="#1877F2"), unsafe_allow_html=True)
+                    with pk3: st.markdown(kpi_card("SKUs", str(camp_skus), "منتج مختلف", "neu", accent_color="#1877F2"), unsafe_allow_html=True)
+
+                    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+                    MCOLS = ["#1877F2","#42A5F5","#1565C0","#0D47A1","#1E88E5","#2196F3","#64B5F6","#90CAF9"]
+                    pl, pr = st.columns(2)
+                    with pl:
+                        st.markdown("**Top Products — Revenue**")
+                        mx = df_mcp_f["item_revenue"].max()
+                        for i,(_,r) in enumerate(df_mcp_f.head(10).iterrows()):
+                            nm = str(r["item_name"])[:45]+("..." if len(str(r["item_name"]))>45 else "")
+                            st.markdown(bar_html(nm, r["item_revenue"]/mx*100 if mx else 0, MCOLS[i%len(MCOLS)], fmt_currency(r["item_revenue"])), unsafe_allow_html=True)
+
+                    with pr:
+                        st.markdown("**Top Products — Units**")
+                        du = df_mcp_f.sort_values("items_purchased", ascending=False)
+                        mu = du["items_purchased"].max()
+                        for i,(_,r) in enumerate(du.head(10).iterrows()):
+                            nm = str(r["item_name"])[:45]+("..." if len(str(r["item_name"]))>45 else "")
+                            st.markdown(bar_html(nm, r["items_purchased"]/mu*100 if mu else 0, MCOLS[i%len(MCOLS)], fmt_number(r["items_purchased"])+" unit"), unsafe_allow_html=True)
+
+                    # Full table
+                    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+                    prod_rows = []
+                    for i,(_,r) in enumerate(df_mcp_f.iterrows(), 1):
+                        nm   = str(r["item_name"])[:65]+("..." if len(str(r["item_name"]))>65 else "")
+                        vw   = safe_num(r.get("items_viewed",0))
+                        crt  = safe_num(r.get("items_added_to_cart",0))
+                        pur  = safe_num(r.get("items_purchased",0))
+                        rev  = safe_num(r.get("item_revenue",0))
+                        v2c  = crt/vw*100  if vw>0  else 0
+                        aov_ = rev/pur      if pur>0 else 0
+                        prod_rows.append(f"""<tr>
+                          <td style="color:#9A9A8E">{i}</td>
+                          <td>{nm}</td>
+                          <td><b style="color:#1877F2">{fmt_currency(rev)}</b></td>
+                          <td>{int(pur)}</td>
+                          <td>{fmt_number(vw)}</td>
+                          <td>{fmt_pct(v2c,1)}</td>
+                          <td>{fmt_currency(aov_,0)}</td>
+                        </tr>""")
+
+                    st.markdown(f"""<table class='styled-table'>
+                      <thead><tr><th>#</th><th>Product</th><th>Revenue</th><th>Units</th><th>Views</th><th>View→Cart</th><th>AOV</th></tr></thead>
+                      <tbody>{''.join(prod_rows)}</tbody>
+                    </table>""", unsafe_allow_html=True)
+                else:
+                    st.info("مفيش مبيعات مسجلة لهذه الكامبين — ممكن الـ UTM tracking مش مكتمل.")
+            else:
+                st.info("مفيش بيانات منتجات متاحة.")
+        else:
+            st.info("اختار كامبين عندها orders أولاً.")
     else:
         st.info("مفيش بيانات Meta campaigns — تأكد إن الـ UTM parameters شغالة على الـ Meta ads.")
 
