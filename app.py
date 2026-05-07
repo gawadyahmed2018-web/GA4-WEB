@@ -224,6 +224,28 @@ def load_campaign_products(preset, d_from=None, d_to=None):
     return get_windsor_data(["session_google_ads_campaign_name","item_name","item_revenue","items_purchased"], preset, d_from, d_to)
 
 @st.cache_data(ttl=300, show_spinner=False)
+def load_landing_pages(preset, d_from=None, d_to=None):
+    """Landing pages performance."""
+    df1 = get_windsor_data(["landing_page","sessions","bounce_rate","average_session_duration"], preset, d_from, d_to)
+    df2 = get_windsor_data(["landing_page","purchase_revenue","transactions","add_to_carts"], preset, d_from, d_to)
+    if df1.empty and df2.empty: return pd.DataFrame()
+    if df1.empty: return df2
+    if df2.empty: return df1
+    try: return pd.merge(df1, df2, on="landing_page", how="outer")
+    except: return df1
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_utm(preset, d_from=None, d_to=None):
+    """UTM source/medium/campaign performance."""
+    df1 = get_windsor_data(["session_source","session_medium","sessions","bounce_rate"], preset, d_from, d_to)
+    df2 = get_windsor_data(["session_source","session_medium","purchase_revenue","transactions","add_to_carts"], preset, d_from, d_to)
+    if df1.empty and df2.empty: return pd.DataFrame()
+    if df1.empty: return df2
+    if df2.empty: return df1
+    try: return pd.merge(df1, df2, on=["session_source","session_medium"], how="outer")
+    except: return df1
+
+@st.cache_data(ttl=300, show_spinner=False)
 def load_category_funnel(preset, d_from=None, d_to=None):
     """Category funnel: item_category x item_category2 x item_category3 with full funnel metrics."""
     return get_windsor_data([
@@ -484,6 +506,150 @@ elif active_tab == "Traffic":
             else: badge='<span class="badge badge-red">ضعيف</span>'
             rows.append(f"<tr><td><b>{r['session_default_channel_group']}</b></td><td>{fmt_number(ses)}</td><td>{fmt_currency(rev)}</td><td>{fmt_number(txn)}</td><td><b style='color:{'#1D9E75' if _cvr>=1 else '#EF9F27' if _cvr>=0.5 else '#D85A30'}'>{fmt_pct(_cvr,2)}</b></td><td>{fmt_currency(rps,1)}</td><td>{badge}</td></tr>")
         st.markdown(f"<table class='styled-table'><thead><tr><th>Channel</th><th>Sessions</th><th>Revenue</th><th>Orders</th><th>CVR</th><th>Rev/Session</th><th>Rating</th></tr></thead><tbody>{''.join(rows)}</tbody></table>", unsafe_allow_html=True)
+
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+    # ── UTM SOURCE / MEDIUM ──────────────────────────────────
+    st.markdown(section_header("UTM Source & Medium", "أداء الـ Campaigns والبانرات", "#7F77DD"), unsafe_allow_html=True)
+    with st.spinner("Loading UTM data..."):
+        df_utm = load_utm(date_preset, _d_from, _d_to)
+
+    if not df_utm.empty and "session_source" in df_utm.columns:
+        for col in ["sessions","purchase_revenue","transactions","add_to_carts","bounce_rate"]:
+            if col in df_utm.columns: df_utm[col] = df_utm[col].apply(safe_num)
+
+        df_utm = df_utm[df_utm["sessions"]>5].copy()
+        df_utm["source_medium"] = df_utm["session_source"].fillna("(direct)") + " / " + df_utm.get("session_medium", pd.Series(["(none)"]*len(df_utm))).fillna("(none)")
+        df_utm = df_utm.sort_values("purchase_revenue", ascending=False)
+
+        # Filter
+        utm_search = st.text_input("🔍 Search source/medium", placeholder="google, facebook, cpc...", key="utm_search")
+        if utm_search:
+            df_utm = df_utm[df_utm["source_medium"].str.contains(utm_search, case=False, na=False)]
+
+        utm_rows = []
+        for _, r in df_utm.head(30).iterrows():
+            ses = r["sessions"]; rev = r["purchase_revenue"]; txn = r["transactions"]
+            br  = r["bounce_rate"]*100 if "bounce_rate" in r.index else 0
+            _cvr = txn/ses*100 if ses>0 else 0
+            rps  = rev/ses if ses>0 else 0
+            _aov = rev/txn if txn>0 else 0
+            if _cvr>=1.5: badge='<span class="badge badge-green">الأقوى</span>'
+            elif _cvr>=0.8: badge='<span class="badge badge-blue">جيد</span>'
+            elif _cvr>=0.3: badge='<span class="badge badge-amber">راجع</span>'
+            else: badge='<span class="badge badge-red">ضعيف</span>'
+            utm_rows.append(f"""<tr>
+              <td style="font-size:11px"><b>{r["source_medium"]}</b></td>
+              <td>{fmt_number(ses)}</td>
+              <td><b style="color:#1D9E75">{fmt_currency(rev)}</b></td>
+              <td>{fmt_number(txn)}</td>
+              <td><b style="color:{'#1D9E75' if _cvr>=1 else '#EF9F27' if _cvr>=0.5 else '#D85A30'}">{fmt_pct(_cvr,2)}</b></td>
+              <td>{fmt_currency(rps,1)}</td>
+              <td>{fmt_currency(_aov,0)}</td>
+              <td style="color:{'#D85A30' if br>55 else '#EF9F27' if br>45 else '#1D9E75'}">{fmt_pct(br,1)}</td>
+              <td>{badge}</td>
+            </tr>""")
+        st.markdown(f"""<table class='styled-table'>
+          <thead><tr>
+            <th>Source / Medium</th><th>Sessions</th><th>Revenue</th><th>Orders</th>
+            <th>CVR</th><th>Rev/Ses</th><th>AOV</th><th>Bounce</th><th>Rating</th>
+          </tr></thead>
+          <tbody>{''.join(utm_rows)}</tbody>
+        </table>""", unsafe_allow_html=True)
+    else:
+        st.info("مفيش بيانات UTM — تأكد إن الـ session_source field متاح في Windsor.")
+
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+    # ── LANDING PAGES ────────────────────────────────────────
+    st.markdown(section_header("Landing Pages Performance", "أداء كل صفحة على الموقع", "#1D9E75"), unsafe_allow_html=True)
+    with st.spinner("Loading landing pages data..."):
+        df_lp = load_landing_pages(date_preset, _d_from, _d_to)
+
+    if not df_lp.empty and "landing_page" in df_lp.columns:
+        for col in ["sessions","purchase_revenue","transactions","add_to_carts","bounce_rate","average_session_duration"]:
+            if col in df_lp.columns: df_lp[col] = df_lp[col].apply(safe_num)
+
+        df_lp = df_lp[df_lp["landing_page"].notna() & (df_lp["landing_page"]!="")].copy()
+        df_lp = df_lp[df_lp["sessions"]>5]
+
+        # Sort options
+        lp_col1, lp_col2 = st.columns(2)
+        lp_sort = lp_col1.selectbox("Sort by", ["purchase_revenue","sessions","transactions","bounce_rate"], key="lp_sort",
+                    format_func=lambda x: {"purchase_revenue":"Revenue","sessions":"Sessions","transactions":"Orders","bounce_rate":"Bounce Rate"}.get(x,x))
+        lp_search = lp_col2.text_input("🔍 Search page", placeholder="/category, /product...", key="lp_search")
+
+        df_lp_f = df_lp.copy()
+        if lp_search:
+            df_lp_f = df_lp_f[df_lp_f["landing_page"].str.contains(lp_search, case=False, na=False)]
+
+        asc = lp_sort == "bounce_rate"
+        df_lp_f = df_lp_f.sort_values(lp_sort, ascending=asc)
+
+        # Summary KPIs
+        lk1,lk2,lk3,lk4 = st.columns(4)
+        with lk1: st.markdown(kpi_card("Total Pages", fmt_number(len(df_lp_f)), "Unique landing pages", "neu", accent_color="#1D9E75"), unsafe_allow_html=True)
+        with lk2:
+            best_lp = df_lp_f.loc[df_lp_f["purchase_revenue"].idxmax()] if not df_lp_f.empty else None
+            st.markdown(kpi_card("Best Revenue Page", str(best_lp["landing_page"])[:30] if best_lp is not None else "—", fmt_currency(best_lp["purchase_revenue"]) if best_lp is not None else "—", "up", accent_color="#1D9E75"), unsafe_allow_html=True)
+        with lk3:
+            best_cvr_lp = df_lp_f[df_lp_f["transactions"]>0]
+            best_cvr_lp = best_cvr_lp.assign(cvr=best_cvr_lp["transactions"]/best_cvr_lp["sessions"]*100)
+            bc_row = best_cvr_lp.loc[best_cvr_lp["cvr"].idxmax()] if not best_cvr_lp.empty else None
+            st.markdown(kpi_card("Best CVR Page", str(bc_row["landing_page"])[:30] if bc_row is not None else "—", fmt_pct(bc_row["cvr"],2) if bc_row is not None else "—", "up", accent_color="#3266AD"), unsafe_allow_html=True)
+        with lk4:
+            avg_lp_bounce = df_lp_f["bounce_rate"].mean()*100 if "bounce_rate" in df_lp_f.columns else 0
+            st.markdown(kpi_card("Avg Bounce Rate", fmt_pct(avg_lp_bounce,1), "عبر كل الصفحات", "dn" if avg_lp_bounce>55 else "wn", accent_color="#D85A30"), unsafe_allow_html=True)
+
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+        lp_rows = []
+        for _, r in df_lp_f.head(50).iterrows():
+            ses  = r["sessions"]; rev = r["purchase_revenue"]; txn = r["transactions"]
+            br   = r["bounce_rate"]*100 if "bounce_rate" in r.index else 0
+            asd  = r.get("average_session_duration", 0)
+            m_   = int(asd//60); s_ = int(asd%60)
+            _cvr = txn/ses*100 if ses>0 else 0
+            rps  = rev/ses if ses>0 else 0
+            crt  = r.get("add_to_carts", 0)
+            c2c  = crt/ses*100 if ses>0 else 0
+
+            # Page type detection
+            pg = str(r["landing_page"])
+            if pg == "/" or pg == "": pg_type = "🏠 Home"
+            elif "/category" in pg or "/cat" in pg: pg_type = "📂 Category"
+            elif "/product" in pg or "/p/" in pg: pg_type = "🛍️ Product"
+            elif "/cart" in pg: pg_type = "🛒 Cart"
+            elif "/search" in pg: pg_type = "🔍 Search"
+            elif "/brand" in pg: pg_type = "🏷️ Brand"
+            else: pg_type = "📄 Page"
+
+            br_color = "#D85A30" if br>65 else "#EF9F27" if br>50 else "#1D9E75"
+            lp_rows.append(f"""<tr>
+              <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                <span style="font-size:9px;color:#9A9A8E">{pg_type}</span><br>
+                <b title="{pg}">{pg[:60]}{"..." if len(pg)>60 else ""}</b>
+              </td>
+              <td>{fmt_number(ses)}</td>
+              <td><b style="color:#1D9E75">{fmt_currency(rev)}</b></td>
+              <td>{fmt_number(txn)}</td>
+              <td><b style="color:{'#1D9E75' if _cvr>=1 else '#EF9F27' if _cvr>=0.3 else '#D85A30'}">{fmt_pct(_cvr,2)}</b></td>
+              <td>{fmt_pct(c2c,1)}</td>
+              <td>{fmt_currency(rps,1)}</td>
+              <td style="color:{br_color}">{fmt_pct(br,1)}</td>
+              <td>{m_}:{s_:02d}</td>
+            </tr>""")
+
+        st.markdown(f"""<table class='styled-table'>
+          <thead><tr>
+            <th>Landing Page</th><th>Sessions</th><th>Revenue</th><th>Orders</th>
+            <th>CVR</th><th>Cart%</th><th>Rev/Ses</th><th>Bounce</th><th>Avg Time</th>
+          </tr></thead>
+          <tbody>{''.join(lp_rows)}</tbody>
+        </table>""", unsafe_allow_html=True)
+        st.caption(f"Showing top 50 of {len(df_lp_f)} pages")
+    else:
+        st.info("مفيش بيانات Landing Pages — تأكد إن الـ landing_page field متاح في Windsor.")
 
 # ═══════════════════════════════════════════════════════════
 # DEVICES
