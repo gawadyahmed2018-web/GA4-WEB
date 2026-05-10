@@ -371,6 +371,19 @@ def bar_html(name, pct, color, val_str):
 def insight(icon, title, body, cls):
     return f'<div class="insight-card {cls}"><b>{icon} {title}</b><br/>{body}</div>'
 
+def export_csv_button(df, filename="export.csv", label="📥 Export CSV"):
+    """Add a download button for CSV export."""
+    import io
+    buf = io.BytesIO()
+    df.to_csv(buf, index=False, encoding="utf-8-sig")  # utf-8-sig for Arabic in Excel
+    st.download_button(
+        label=label,
+        data=buf.getvalue(),
+        file_name=filename,
+        mime="text/csv",
+        use_container_width=False,
+    )
+
 
 # ═══════════════════════════════════════════════════════════
 # OVERVIEW
@@ -524,6 +537,7 @@ elif active_tab == "Traffic":
             else: badge='<span class="badge badge-red">ضعيف</span>'
             rows.append(f"<tr><td><b>{r['session_default_channel_group']}</b></td><td>{fmt_number(ses)}</td><td>{fmt_currency(rev)}</td><td>{fmt_number(txn)}</td><td><b style='color:{'#1D9E75' if _cvr>=1 else '#EF9F27' if _cvr>=0.5 else '#D85A30'}'>{fmt_pct(_cvr,2)}</b></td><td>{fmt_currency(rps,1)}</td><td>{badge}</td></tr>")
         st.markdown(f"<table class='styled-table'><thead><tr><th>Channel</th><th>Sessions</th><th>Revenue</th><th>Orders</th><th>CVR</th><th>Rev/Session</th><th>Rating</th></tr></thead><tbody>{''.join(rows)}</tbody></table>", unsafe_allow_html=True)
+        export_csv_button(df_g[["session_default_channel_group","sessions","purchase_revenue","transactions"]], "channels.csv")
 
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
@@ -583,6 +597,7 @@ elif active_tab == "Traffic":
           </tr></thead>
           <tbody>{''.join(utm_rows)}</tbody>
         </table>""", unsafe_allow_html=True)
+        export_csv_button(df_utm[[grp,"sessions","purchase_revenue","transactions"]], "utm.csv")
     else:
         st.info("مفيش بيانات UTM متاحة حالياً.")
 
@@ -775,6 +790,7 @@ elif active_tab == "E-Commerce":
             bc="badge-green" if cr_>8 else "badge-amber" if cr_>4 else "badge-red"
             rows.append(f"<tr><td style='color:#9A9A8E'>{i}</td><td>{nm}</td><td><b style='color:#1D9E75'>{fmt_currency(r['item_revenue'])}</b></td><td>{int(r['items_purchased'])}</td><td>{fmt_number(vw)}</td><td><span class='badge {bc}'>{cr_:.1f}%</span></td></tr>")
         st.markdown(f"<table class='styled-table'><thead><tr><th>#</th><th>Product</th><th>Revenue</th><th>Units</th><th>Views</th><th>Cart%</th></tr></thead><tbody>{''.join(rows)}</tbody></table>", unsafe_allow_html=True)
+        export_csv_button(df_top[["item_name","item_revenue","items_purchased","items_viewed","items_added_to_cart"]], "top_products.csv")
 
     # ── CATEGORY FUNNEL TABLE ────────────────────────────────
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
@@ -1063,6 +1079,7 @@ elif active_tab == "Campaigns":
           <tbody>{''.join(meta_rows)}</tbody>
         </table>""", unsafe_allow_html=True)
         st.caption(f"Showing {min(50,len(df_meta_show))} of {len(df_meta_show)} Meta campaigns · (organic), (not set), (referral) excluded")
+        export_csv_button(df_meta_show[["session_manual_campaign_name","sessions","purchase_revenue","transactions","cvr","rps","aov"]], "meta_campaigns.csv")
 
         # ── CAMPAIGN → PRODUCTS DRILL-DOWN ───────────────────
         st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
@@ -1269,6 +1286,7 @@ elif active_tab == "Users":
           <thead><tr><th>Segment</th><th>Sessions</th><th>Revenue</th><th>Orders</th><th>CVR</th><th>AOV</th><th>Cart Abandon</th><th>Bounce</th></tr></thead>
           <tbody>{''.join(seg_rows)}</tbody>
         </table>""", unsafe_allow_html=True)
+        export_csv_button(pd.DataFrame(seg_data), "users_segments.csv")
 
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
@@ -1304,6 +1322,7 @@ elif active_tab == "Users":
           <thead><tr><th>Device</th><th>Sessions</th><th>Revenue</th><th>Orders</th><th>CVR</th><th>AOV</th><th>Rev/Session</th><th>Bounce</th><th>Avg Session</th></tr></thead>
           <tbody>{''.join(dev_rows)}</tbody>
         </table>""", unsafe_allow_html=True)
+        export_csv_button(df_udev_f[["devicecategory","sessions","purchase_revenue","transactions","bounce_rate"]], "users_devices.csv")
 
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
@@ -1413,6 +1432,7 @@ elif active_tab == "Users":
         </table>""", unsafe_allow_html=True)
 
         # Retention trend chart
+        export_csv_button(df_monthly, "cohort_analysis.csv")
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
         months_list, ret_rates, new_revs, ret_revs = [], [], [], []
         for month in months:
